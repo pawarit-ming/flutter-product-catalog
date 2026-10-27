@@ -12,3 +12,10 @@ final categoriesProvider = FutureProvider<List<ProductCategory>>((ref) {
   ref.onDispose(token.cancel);
   return ref.watch(productRepositoryProvider).getCategories(cancelToken: token);
 }, retry: noRetry);
+
+/// Cover photo URL for one category. Kept for the whole session once loaded,
+/// so revisiting the Categories tab does not fetch the covers again.
+final categoryCoverProvider = FutureProvider.family<String?, String>(
+  (ref, slug) => ref.watch(productRepositoryProvider).getCategoryCover(slug),
+  retry: noRetry,
+);

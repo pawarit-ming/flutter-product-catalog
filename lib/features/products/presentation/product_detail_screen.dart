@@ -13,6 +13,7 @@ import '../../cart/presentation/quantity_stepper.dart';
 import '../../wishlist/presentation/wishlist_button.dart';
 import '../application/product_detail_provider.dart';
 import '../data/product.dart';
+import '../data/thai_labels.dart';
 import 'widgets/error_view.dart';
 import 'widgets/product_grid.dart' show maxContentWidth;
 import 'widgets/product_image.dart';
@@ -193,7 +194,6 @@ class _GalleryState extends State<_Gallery> {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(color: colors.outlineVariant),
           ),
           child: AspectRatio(
             aspectRatio: 1,
@@ -274,7 +274,7 @@ class _GalleryState extends State<_Gallery> {
                           border: Border.all(
                             width: i == _page ? 1.5 : 1,
                             color: i == _page
-                                ? colors.primary
+                                ? colors.onSurface
                                 : colors.outlineVariant,
                           ),
                         ),
@@ -323,11 +323,24 @@ class _ProductInfo extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          [?product.brand, product.categoryName].join(' · ').toUpperCase(),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        Wrap(
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _CategoryPill(
+              slug: product.categorySlug,
+              name: product.categoryName,
+            ),
+            if (product.brand case final brand?)
+              Text(
+                brand,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: AppSpace.sm),
         Text(product.title, style: theme.textTheme.headlineSmall),
@@ -378,19 +391,19 @@ class _ProductInfo extends StatelessWidget {
               _FactRow(
                 icon: Icons.local_shipping_outlined,
                 label: 'การจัดส่ง',
-                text: shipping,
+                text: thaiShipping(shipping),
               ),
             if (product.warrantyInformation case final warranty?)
               _FactRow(
                 icon: Icons.verified_user_outlined,
                 label: 'การรับประกัน',
-                text: warranty,
+                text: thaiWarranty(warranty),
               ),
             if (product.returnPolicy case final returns?)
               _FactRow(
                 icon: Icons.assignment_return_outlined,
                 label: 'การคืนสินค้า',
-                text: returns,
+                text: thaiReturnPolicy(returns),
               ),
           ],
         ),
@@ -417,7 +430,7 @@ class _ProductInfo extends StatelessWidget {
             rows: {
               'แบรนด์': product.brand,
               'หมวดหมู่': product.categoryName,
-              'SKU': product.sku,
+              'รหัสสินค้า (SKU)': product.sku,
               // The API gives no units for size and weight.
               'ขนาด (ก × ส × ล)': dimensions == null
                   ? null
@@ -433,6 +446,36 @@ class _ProductInfo extends StatelessWidget {
           child: _Reviews(product: product),
         ),
       ],
+    );
+  }
+}
+
+/// The product's category in its own colour.
+class _CategoryPill extends StatelessWidget {
+  const _CategoryPill({required this.slug, required this.name});
+
+  final String slug;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = CategoryPalette.of(context, slug);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.sm + 2,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: tint.background,
+        borderRadius: BorderRadius.circular(AppRadius.badge),
+      ),
+      child: Text(
+        name,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: tint.foreground,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -463,7 +506,8 @@ class _Section extends StatelessWidget {
   }
 }
 
-/// Rows on a white card, separated by hairlines. Renders nothing when empty.
+/// Rows on a soft grey card, separated by hairlines. Renders nothing when
+/// empty.
 class _InfoCard extends StatelessWidget {
   const _InfoCard({required this.children});
 
@@ -472,13 +516,11 @@ class _InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (children.isEmpty) return const SizedBox.shrink();
-    final colors = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
         children: [
@@ -563,8 +605,8 @@ class _TagPill extends StatelessWidget {
         vertical: AppSpace.xs,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(AppRadius.thumb),
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.badge),
       ),
       child: Text(
         tag,
@@ -716,18 +758,27 @@ class _Reviews extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ExcludeSemantics(
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: colors.secondaryContainer,
-                    foregroundColor: colors.onSecondaryContainer,
-                    child: Text(
-                      review.reviewerName.characters.firstOrNull
-                              ?.toUpperCase() ??
-                          '?',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  child: Builder(
+                    builder: (context) {
+                      // Each reviewer keeps the same colour everywhere.
+                      final tint = CategoryPalette.forKey(
+                        context,
+                        review.reviewerName,
+                      );
+                      return CircleAvatar(
+                        radius: 18,
+                        backgroundColor: tint.background,
+                        child: Text(
+                          review.reviewerName.characters.firstOrNull
+                                  ?.toUpperCase() ??
+                              '?',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: tint.foreground,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: AppSpace.md),
@@ -820,7 +871,7 @@ class _PurchaseBar extends ConsumerWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: colors.surfaceContainerLowest,
         border: Border(top: BorderSide(color: colors.outlineVariant)),
       ),
       child: SafeArea(

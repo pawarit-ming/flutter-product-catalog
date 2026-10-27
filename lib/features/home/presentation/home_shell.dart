@@ -89,6 +89,8 @@ class HomeShell extends ConsumerWidget {
         return Scaffold(
           body: stack,
           bottomNavigationBar: DecoratedBox(
+            // In front, so the bar's own background does not hide the rule.
+            position: DecorationPosition.foreground,
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(

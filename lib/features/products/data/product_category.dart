@@ -1,4 +1,5 @@
 import '../../../core/formatting/price_format.dart';
+import 'thai_labels.dart';
 
 class ProductCategory {
   const ProductCategory({required this.slug, required this.name});
@@ -21,5 +22,10 @@ class ProductCategory {
   }
 
   final String slug;
+
+  /// The name the API sends, in English.
   final String name;
+
+  /// What the app shows: the Thai name when the category is known.
+  String get label => thaiCategoryName(slug, fallback: name);
 }

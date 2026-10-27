@@ -287,4 +287,52 @@ void main() {
       );
     });
   });
+
+  group('getCategoryCover', () {
+    test('asks for one product photo and returns its thumbnail', () async {
+      respond(
+        (_) => json({
+          'products': [
+            {
+              'thumbnail': 'https://x.test/thumb.webp',
+              'images': ['https://x.test/1.webp'],
+            },
+          ],
+          'total': 5,
+        }),
+      );
+
+      final cover = await repository.getCategoryCover('home-decoration');
+
+      final uri = adapter.requests.single.uri;
+      expect(uri.path, '/products/category/home-decoration');
+      expect(uri.queryParameters, {'limit': '1', 'select': 'thumbnail,images'});
+      expect(cover, 'https://x.test/thumb.webp');
+    });
+
+    test('falls back to the first image, then to null', () async {
+      respond(
+        (_) => json({
+          'products': [
+            {
+              'thumbnail': 'not a url',
+              'images': ['https://x.test/1.webp'],
+            },
+          ],
+        }),
+      );
+      expect(await repository.getCategoryCover('a'), 'https://x.test/1.webp');
+
+      respond((_) => json({'products': <Object>[]}));
+      expect(await repository.getCategoryCover('a'), isNull);
+    });
+
+    test('rejects a malformed response', () {
+      respond((_) => json(['nope']));
+      expect(
+        repository.getCategoryCover('a'),
+        throwsAppError(AppErrorType.invalidData),
+      );
+    });
+  });
 }

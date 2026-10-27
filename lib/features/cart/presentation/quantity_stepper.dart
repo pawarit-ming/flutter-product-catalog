@@ -66,9 +66,11 @@ class QuantityStepper extends StatelessWidget {
       ],
     );
     final decoration = BoxDecoration(
-      color: dense ? colors.surfaceContainerLow : null,
-      border: dense ? null : Border.all(color: colors.outlineVariant),
-      borderRadius: BorderRadius.circular(AppRadius.control),
+      // Dense steppers sit on white cart cards; the regular one sits on the
+      // grey page, so it is white with an edge.
+      color: dense ? colors.surfaceContainer : colors.surfaceContainerLowest,
+      border: dense ? null : Border.all(color: colors.outline),
+      borderRadius: BorderRadius.circular(AppRadius.badge),
     );
     if (!dense) return DecoratedBox(decoration: decoration, child: controls);
     // Only the background is inset. Both buttons still receive the full hit

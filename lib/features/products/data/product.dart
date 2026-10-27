@@ -1,4 +1,5 @@
 import '../../../core/formatting/price_format.dart';
+import 'thai_labels.dart';
 
 class Product {
   const Product({
@@ -147,7 +148,9 @@ class Product {
     ],
   };
 
-  String get categoryName => humanizeSlug(categorySlug);
+  /// Thai name for known categories, otherwise the humanized slug.
+  String get categoryName =>
+      thaiCategoryName(categorySlug, fallback: humanizeSlug(categorySlug));
 
   /// Whole-percent discount shown on badges; 0 when there is no real discount.
   int get discountBadge => discountPercentage.round();

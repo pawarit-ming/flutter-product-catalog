@@ -137,7 +137,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     final list = ref.watch(productListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Product Catalog')),
+      appBar: AppBar(title: const Text('แคตตาล็อกสินค้า')),
       body: Column(
         children: [
           _CatalogHeader(
@@ -245,9 +245,9 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
 
   EdgeInsets _gridPadding(ProductGridLayout layout) => EdgeInsets.fromLTRB(
     layout.horizontalPadding,
-    4,
+    AppSpace.sm,
     layout.horizontalPadding,
-    24,
+    AppSpace.xl,
   );
 }
 
@@ -327,11 +327,8 @@ class _CategoryChips extends ConsumerWidget {
         label: Text(label),
         selected: selected,
         labelStyle: TextStyle(
-          color: selected ? colors.onPrimary : colors.onSurface,
+          color: selected ? colors.surfaceContainerLowest : colors.onSurface,
           fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-        ),
-        side: BorderSide(
-          color: selected ? colors.primary : colors.outlineVariant,
         ),
         onSelected: (_) => onSelected(slug),
       );
@@ -340,20 +337,20 @@ class _CategoryChips extends ConsumerWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        spacing: 8,
+        spacing: AppSpace.sm,
         children: [
           chip('ทั้งหมด', null),
           ...categories.when(
-            data: (list) => [for (final c in list) chip(c.name, c.slug)],
+            data: (list) => [for (final c in list) chip(c.label, c.slug)],
             // Static placeholders: no animation while loading.
             loading: () => [
               for (var i = 0; i < 4; i++)
                 Container(
-                  width: 88,
+                  width: 80,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
+                    color: colors.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(AppRadius.badge),
                   ),
                 ),
             ],
@@ -406,141 +403,168 @@ class _ResultBar extends ConsumerWidget {
   }
 }
 
-/// An outlined sort control with a readable, right-anchored options menu.
-/// The popup is wider than the compact trigger to fit full Thai labels.
-class _SortMenu extends StatelessWidget {
+/// The sort control: a pill like the category chips, opening a readable,
+/// right-anchored options menu that is wider than the pill to fit full Thai
+/// labels. It ripples when pressed, darkens while the menu is open, and keeps
+/// an ink outline while a sort other than the default is applied.
+class _SortMenu extends StatefulWidget {
   const _SortMenu({required this.selected, required this.onSelected});
 
   final ProductSort selected;
   final ValueChanged<ProductSort> onSelected;
 
   @override
+  State<_SortMenu> createState() => _SortMenuState();
+}
+
+class _SortMenuState extends State<_SortMenu> {
+  bool _open = false;
+
+  void _setOpen(bool open) {
+    if (mounted && _open != open) setState(() => _open = open);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return PopupMenuButton<ProductSort>(
-      tooltip: 'เรียงลำดับ',
-      position: PopupMenuPosition.under,
-      offset: const Offset(0, AppSpace.xs),
-      menuPadding: const EdgeInsets.all(AppSpace.xs),
-      constraints: BoxConstraints.tightFor(
-        width: math.min(
-          280,
-          MediaQuery.sizeOf(context).width - AppSpace.lg * 2,
-        ),
-      ),
-      onSelected: onSelected,
-      itemBuilder: (context) => [
-        PopupMenuItem<ProductSort>(
-          enabled: false,
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
-          child: Text(
-            'เรียงลำดับสินค้า',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: colors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
+    final sorted = widget.selected != ProductSort.recommended;
+    final accent = _open || sorted;
+    final foreground = colors.onSurface;
+
+    // Vertical padding outside the pill keeps the row at a 48 dp tap height.
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+      child: Material(
+        // The menu button's ripple paints on this Material, inside the pill.
+        color: _open
+            ? colors.surfaceContainerHigh
+            : colors.surfaceContainerLowest,
+        clipBehavior: Clip.antiAlias,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: accent ? colors.onSurface : colors.outlineVariant,
           ),
         ),
-        for (final sort in ProductSort.values)
-          PopupMenuItem(
-            value: sort,
-            height: 0,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpace.xs,
-              vertical: 2,
+        child: PopupMenuButton<ProductSort>(
+          tooltip: 'เรียงลำดับ',
+          position: PopupMenuPosition.under,
+          offset: const Offset(0, AppSpace.xs),
+          menuPadding: const EdgeInsets.all(AppSpace.xs),
+          constraints: BoxConstraints.tightFor(
+            width: math.min(
+              280,
+              MediaQuery.sizeOf(context).width - AppSpace.lg * 2,
             ),
-            child: Semantics(
-              selected: sort == selected,
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 48),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpace.md,
-                  vertical: AppSpace.md,
-                ),
-                decoration: BoxDecoration(
-                  color: sort == selected ? colors.secondaryContainer : null,
-                  borderRadius: BorderRadius.circular(AppRadius.thumb),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      sort.icon,
-                      size: 20,
-                      color: sort == selected
-                          ? colors.onSurface
-                          : colors.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: AppSpace.md),
-                    Expanded(
-                      child: Text(
-                        sort.label,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          height: 1.4,
-                          color: colors.onSurface,
-                          fontWeight: sort == selected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpace.sm),
-                    SizedBox.square(
-                      dimension: 20,
-                      child: sort == selected
-                          ? Icon(
-                              Icons.check_rounded,
-                              size: 20,
-                              color: colors.onSurface,
-                            )
-                          : null,
-                    ),
-                  ],
+          ),
+          onOpened: () => _setOpen(true),
+          onCanceled: () => _setOpen(false),
+          onSelected: (sort) {
+            _setOpen(false);
+            widget.onSelected(sort);
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem<ProductSort>(
+              enabled: false,
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+              child: Text(
+                'เรียงลำดับสินค้า',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          ),
-      ],
-      child: Semantics(
-        label: 'เรียงลำดับ: ${selected.label}',
-        excludeSemantics: true,
-        // Keep a 48 dp tap target around the smaller visible control.
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 32),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpace.sm,
-              vertical: AppSpace.xs,
-            ),
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerLowest,
-              border: Border.all(color: colors.outlineVariant),
-              borderRadius: BorderRadius.circular(AppRadius.thumb),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.sort_rounded,
-                  size: 16,
-                  color: colors.onSurfaceVariant,
+            for (final sort in ProductSort.values)
+              PopupMenuItem(
+                value: sort,
+                height: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpace.xs,
+                  vertical: 2,
                 ),
-                const SizedBox(width: AppSpace.xs),
-                Text(
-                  selected.compactLabel,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                child: Semantics(
+                  selected: sort == widget.selected,
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpace.md,
+                      vertical: AppSpace.md,
+                    ),
+                    decoration: BoxDecoration(
+                      color: sort == widget.selected
+                          ? colors.surfaceContainer
+                          : null,
+                      borderRadius: BorderRadius.circular(AppRadius.thumb),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          sort.icon,
+                          size: 20,
+                          color: sort == widget.selected
+                              ? colors.onSurface
+                              : colors.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: AppSpace.md),
+                        Expanded(
+                          child: Text(
+                            sort.label,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              height: 1.4,
+                              color: colors.onSurface,
+                              fontWeight: sort == widget.selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpace.sm),
+                        SizedBox.square(
+                          dimension: 20,
+                          child: sort == widget.selected
+                              ? Icon(
+                                  Icons.check_rounded,
+                                  size: 20,
+                                  color: colors.onSurface,
+                                )
+                              : null,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: AppSpace.xs),
-                Icon(
-                  Icons.expand_more,
-                  size: 16,
-                  color: colors.onSurfaceVariant,
-                ),
-              ],
+              ),
+          ],
+          child: Semantics(
+            label: 'เรียงลำดับ: ${widget.selected.label}',
+            excludeSemantics: true,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 40),
+              padding: const EdgeInsets.only(
+                left: AppSpace.md,
+                right: AppSpace.sm,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.sort_rounded, size: 18, color: foreground),
+                  const SizedBox(width: AppSpace.xs + 2),
+                  Text(
+                    widget.selected.compactLabel,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: foreground,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  AnimatedRotation(
+                    turns: _open ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 150),
+                    child: Icon(Icons.expand_more, size: 20, color: foreground),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -580,7 +604,7 @@ class _ListFooter extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          FilledButton.tonalIcon(
+          OutlinedButton.icon(
             onPressed: state.isRefreshing ? null : onLoadMore,
             style: _buttonStyle,
             icon: const Icon(Icons.refresh),

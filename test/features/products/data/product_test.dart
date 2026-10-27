@@ -14,7 +14,7 @@ void main() {
       expect(product.price, 44.0);
       expect(product.price, isA<double>());
       expect(product.categorySlug, 'home-decoration');
-      expect(product.categoryName, 'Home Decoration');
+      expect(product.categoryName, 'ของแต่งบ้าน');
       expect(product.discountPercentage, 12.4);
       expect(product.rating, 4.56);
       expect(product.stock, 45);

@@ -21,6 +21,10 @@ abstract interface class ProductRepository {
   Future<Product> getProduct(int id, {CancelToken? cancelToken});
 
   Future<List<ProductCategory>> getCategories({CancelToken? cancelToken});
+
+  /// A photo of the first product in category [slug], used as the
+  /// category's cover; null when the category has no product with a photo.
+  Future<String?> getCategoryCover(String slug, {CancelToken? cancelToken});
 }
 
 final productRepositoryProvider = Provider<ProductRepository>(
@@ -105,6 +109,27 @@ class DioProductRepository implements ProductRepository {
     );
     if (data is! List) throw AppException(AppErrorType.invalidData);
     return _parse(() => data.map(ProductCategory.fromJson).toList());
+  }
+
+  @override
+  Future<String?> getCategoryCover(
+    String slug, {
+    CancelToken? cancelToken,
+  }) async {
+    final data = await _get(
+      '/products/category/${Uri.encodeComponent(slug)}',
+      // One product, and only its photo fields, keeps this request tiny.
+      queryParameters: {'limit': 1, 'select': 'thumbnail,images'},
+      cancelToken: cancelToken,
+      isDetail: false,
+    );
+    if (data is! Map || data['products'] is! List) {
+      throw AppException(AppErrorType.invalidData);
+    }
+    final first = (data['products'] as List).firstOrNull;
+    if (first is! Map) return null;
+    return Product.parseImageUrls([first['thumbnail']]).firstOrNull ??
+        Product.parseImageUrls(first['images']).firstOrNull;
   }
 
   Future<Object?> _get(

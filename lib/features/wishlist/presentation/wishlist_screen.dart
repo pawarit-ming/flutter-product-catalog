@@ -23,12 +23,11 @@ class WishlistScreen extends ConsumerWidget {
                     icon: Icons.favorite_border,
                     title: 'ยังไม่มีรายการโปรด',
                     message: 'กดรูปหัวใจบนสินค้าเพื่อบันทึกไว้ที่นี่',
-                    action: FilledButton.icon(
+                    action: FilledButton(
                       onPressed: () => ref
                           .read(homeTabProvider.notifier)
                           .select(HomeTab.catalog),
-                      icon: const Icon(Icons.storefront_outlined, size: 20),
-                      label: const Text('เลือกดูสินค้า'),
+                      child: const Text('เลือกดูสินค้า'),
                     ),
                   ),
                 ),

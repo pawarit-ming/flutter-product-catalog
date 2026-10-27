@@ -108,7 +108,8 @@ class _Constrained extends StatelessWidget {
   );
 }
 
-/// White grouped surface with hairline separators between children.
+/// White card with hairline separators between its rows. A [Material], so
+/// the rows' ink ripples show on it.
 class _Group extends StatelessWidget {
   const _Group({required this.children});
 
@@ -116,18 +117,15 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(AppRadius.card),
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(color: colors.outlineVariant),
-      ),
       child: Column(
         children: [
           for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) const Divider(),
+            if (i > 0)
+              const Divider(indent: AppSpace.md, endIndent: AppSpace.md),
             children[i],
           ],
         ],
@@ -196,9 +194,12 @@ class _CartLine extends ConsumerWidget {
               width: _thumbSize,
               height: _thumbSize,
               clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
+              foregroundDecoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(AppRadius.thumb),
                 border: Border.all(color: colors.outlineVariant),
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadius.thumb),
               ),
               child: ProductImage(
                 url: product.cardImageUrl,
@@ -219,7 +220,9 @@ class _CartLine extends ConsumerWidget {
                           product.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                       SizedBox.square(
@@ -294,12 +297,16 @@ class _OrderSummary extends ConsumerWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('สรุปยอด', style: theme.textTheme.titleSmall),
+          Text(
+            'สรุปยอด',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: AppSpace.md),
           _AmountRow(
             label: 'ราคาสินค้า ($count ชิ้น)',
@@ -394,6 +401,8 @@ class _TotalBar extends ConsumerWidget {
                         child: Text(
                           formatPrice(totals.subtotal),
                           style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
@@ -432,14 +441,15 @@ class _AmountRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final labelStyle = emphasize
-        ? theme.textTheme.titleSmall
+        ? theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)
         : theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           );
     final valueStyle =
         (emphasize
                 ? theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
                   )
                 : theme.textTheme.bodyMedium)
             ?.copyWith(

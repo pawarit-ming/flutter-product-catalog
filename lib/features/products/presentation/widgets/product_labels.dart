@@ -4,7 +4,8 @@ import '../../../../core/formatting/price_format.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/product.dart';
 
-/// "-12%" label; renders nothing when there is no real discount.
+/// Solid "−12%" pill in the sale accent; renders nothing without a real
+/// discount.
 class DiscountBadge extends StatelessWidget {
   const DiscountBadge({super.key, required this.product});
 
@@ -18,17 +19,21 @@ class DiscountBadge extends StatelessWidget {
       label: 'ลด ${product.discountBadge}%',
       excludeSemantics: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
-          color: catalog.saleContainer,
+          color: catalog.sale,
           borderRadius: BorderRadius.circular(AppRadius.badge),
         ),
         child: Text(
-          '-${product.discountBadge}%',
+          '−${product.discountBadge}%',
           style: TextStyle(
-            color: catalog.onSaleContainer,
+            color:
+                ThemeData.estimateBrightnessForColor(catalog.sale) ==
+                    Brightness.dark
+                ? Colors.white
+                : Colors.black,
             fontSize: 11,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
@@ -160,11 +165,9 @@ class PriceRow extends StatelessWidget {
       TextStyle(
         fontSize: large ? 28.0 : ProductTextStyles.priceFontSize,
         height: ProductTextStyles.lineHeight,
-        fontWeight: FontWeight.w700,
-        // Discounted prices use the sale accent; regular prices stay ink.
-        color: product.hasDiscount
-            ? CatalogColors.of(context).sale
-            : theme.colorScheme.onSurface,
+        fontWeight: FontWeight.w600,
+        // Prices stay ink; the discount tag carries the accent.
+        color: theme.colorScheme.onSurface,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
@@ -230,8 +233,9 @@ class PriceRow extends StatelessWidget {
 /// Font sizes shared by the card and its height calculation.
 abstract final class ProductTextStyles {
   static const lineHeight = 1.3;
+
   static const metaFontSize = 12.0;
-  static const titleFontSize = 15.0;
-  static const priceFontSize = 18.0;
+  static const titleFontSize = 14.0;
+  static const priceFontSize = 16.0;
   static const stockFontSize = 12.0;
 }

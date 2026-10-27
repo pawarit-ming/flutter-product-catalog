@@ -14,6 +14,9 @@ class FakeProductRepository implements ProductRepository {
   final detailRequests = <DetailRequest>[];
   final categoryRequests = <Completer<List<ProductCategory>>>[];
 
+  /// Category slug -> pending cover request.
+  final coverRequests = <String, Completer<String?>>{};
+
   @override
   Future<ProductPage> getProducts({
     required CatalogQuery query,
@@ -39,6 +42,10 @@ class FakeProductRepository implements ProductRepository {
     categoryRequests.add(completer);
     return completer.future;
   }
+
+  @override
+  Future<String?> getCategoryCover(String slug, {CancelToken? cancelToken}) =>
+      coverRequests.putIfAbsent(slug, Completer.new).future;
 }
 
 class ListRequest {

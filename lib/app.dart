@@ -11,7 +11,7 @@ class ProductCatalogApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Product Catalog',
+      title: 'แคตตาล็อกสินค้า',
       debugShowCheckedModeBanner: false,
       locale: const Locale('th'),
       supportedLocales: const [Locale('th')],

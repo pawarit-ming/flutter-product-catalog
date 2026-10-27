@@ -94,3 +94,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  # Anuphan covers Thai and Latin; one variable file holds every weight.
+  # Licence: assets/fonts/anuphan-OFL.txt.
+  fonts:
+    - family: Anuphan
+      fonts:
+        - asset: assets/fonts/Anuphan-Variable.ttf

@@ -10,6 +10,9 @@ import 'product_card.dart';
 const maxContentWidth = 1200.0;
 const _sidePadding = 16.0;
 const _gridSpacing = 12.0;
+
+/// Each product is its own card, so rows and columns share one gap.
+const _rowSpacing = _gridSpacing;
 const _minCardWidth = 150.0;
 
 /// Columns that fit [contentWidth] with cards at least 150 wide, clamped 1–4.
@@ -46,7 +49,7 @@ class ProductGridLayout {
 
   SliverGridDelegate get delegate => SliverGridDelegateWithFixedCrossAxisCount(
     crossAxisCount: columns,
-    mainAxisSpacing: _gridSpacing,
+    mainAxisSpacing: _rowSpacing,
     crossAxisSpacing: _gridSpacing,
     mainAxisExtent: cardHeight,
   );
@@ -112,16 +115,26 @@ class SliverProductSkeletonGrid extends StatelessWidget {
         key: const Key('product-skeleton'),
         gridDelegate: layout.delegate,
         itemCount: count,
-        itemBuilder: (context, index) => Card(
-          clipBehavior: Clip.antiAlias,
+        itemBuilder: (context, index) => DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AspectRatio(
                 aspectRatio: 1,
-                child: ColoredBox(color: colors.surfaceContainerLow),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpace.sm),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainer,
+                      borderRadius: BorderRadius.circular(AppRadius.thumb),
+                    ),
+                  ),
+                ),
               ),
-              const Divider(),
               Padding(
                 padding: const EdgeInsets.all(ProductCard.padding),
                 child: Column(

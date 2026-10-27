@@ -10,15 +10,18 @@ import '../../data/product.dart';
 import 'product_image.dart';
 import 'product_labels.dart';
 
+/// A product on its own white card: the photo on top, then the details and a
+/// round add-to-cart button beside the price.
 class ProductCard extends ConsumerWidget {
   const ProductCard({super.key, required this.product, required this.onTap});
 
-  static const padding = AppSpace.md;
-  static const _metaGap = 6.0;
-  static const _titleGap = AppSpace.sm;
-  static const _priceGap = 2.0;
+  static const imageGap = 8.0;
+
+  /// Inset of the text below the photo, at the sides and bottom.
+  static const padding = 10.0;
+  static const _metaGap = 2.0;
+  static const _titleGap = 6.0;
   static const _buttonSize = 48.0;
-  static const _dividerHeight = 1.0;
   static const _titleLines = 2;
 
   /// Height of a card [width] wide: a square image plus the text rows at the
@@ -27,21 +30,29 @@ class ProductCard extends ConsumerWidget {
     double line(double fontSize) =>
         textScaler.scale(fontSize) * ProductTextStyles.lineHeight;
     return width +
-        _dividerHeight +
-        padding * 2 +
+        imageGap +
         line(ProductTextStyles.metaFontSize) +
         _metaGap +
         line(ProductTextStyles.titleFontSize) * _titleLines +
         _titleGap +
-        line(ProductTextStyles.priceFontSize) +
-        _priceGap +
-        math.max(
-          line(ProductTextStyles.stockFontSize) * StockLabel.compactMaxLines,
-          _buttonSize,
-        ) +
+        _footerHeight(textScaler) +
+        padding +
         // A few pixels of slack absorb font metric rounding.
         4;
   }
+
+  /// Price and stock stacked on the left, the button on the right. The
+  /// price row aligns two sizes on a baseline, which can run a pixel past
+  /// its line height, hence the extra 2.
+  static double _footerHeight(TextScaler textScaler) => math.max(
+    textScaler.scale(ProductTextStyles.priceFontSize) *
+            ProductTextStyles.lineHeight +
+        textScaler.scale(ProductTextStyles.stockFontSize) *
+            ProductTextStyles.lineHeight *
+            StockLabel.compactMaxLines +
+        2,
+    _buttonSize,
+  );
 
   final Product product;
   final VoidCallback onTap;
@@ -52,21 +63,19 @@ class ProductCard extends ConsumerWidget {
     final colors = theme.colorScheme;
     final rating = product.rating;
     final textScaler = MediaQuery.textScalerOf(context);
-    final metaLine =
-        textScaler.scale(ProductTextStyles.metaFontSize) *
-        ProductTextStyles.lineHeight;
-    final titleHeight =
-        textScaler.scale(ProductTextStyles.titleFontSize) *
-        ProductTextStyles.lineHeight *
-        _titleLines;
-    final footerHeight = math.max(
-      textScaler.scale(ProductTextStyles.stockFontSize) *
-          ProductTextStyles.lineHeight *
-          StockLabel.compactMaxLines,
-      _buttonSize,
+    final metaStyle = theme.textTheme.bodySmall?.copyWith(
+      fontSize: ProductTextStyles.metaFontSize,
+      height: ProductTextStyles.lineHeight,
+      color: colors.onSurfaceVariant,
     );
+    final categoryColor = CategoryPalette.of(
+      context,
+      product.categorySlug,
+    ).foreground;
 
-    return Card(
+    return Material(
+      color: colors.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(AppRadius.card),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -96,42 +105,49 @@ class ProductCard extends ConsumerWidget {
                 ],
               ),
             ),
-            const Divider(height: _dividerHeight),
             Padding(
-              padding: const EdgeInsets.all(padding),
+              padding: const EdgeInsets.fromLTRB(
+                padding,
+                imageGap,
+                padding,
+                padding,
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(
-                    height: metaLine,
+                    height:
+                        textScaler.scale(ProductTextStyles.metaFontSize) *
+                        ProductTextStyles.lineHeight,
                     child: Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            product.categoryName.toUpperCase(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: ProductTextStyles.metaFontSize,
-                              height: ProductTextStyles.lineHeight,
-                              color: colors.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
                         if (rating != null) ...[
-                          const SizedBox(width: AppSpace.xs),
                           RatingLabel(
                             rating: rating,
                             fontSize: ProductTextStyles.metaFontSize,
                           ),
+                          Text(' · ', style: metaStyle),
                         ],
+                        Expanded(
+                          child: Text(
+                            product.categoryName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: metaStyle?.copyWith(
+                              color: categoryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: _metaGap),
                   SizedBox(
-                    height: titleHeight,
+                    height:
+                        textScaler.scale(ProductTextStyles.titleFontSize) *
+                        ProductTextStyles.lineHeight *
+                        _titleLines,
                     child: Text(
                       product.title,
                       maxLines: _titleLines,
@@ -139,23 +155,28 @@ class ProductCard extends ConsumerWidget {
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontSize: ProductTextStyles.titleFontSize,
                         height: ProductTextStyles.lineHeight,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: colors.onSurface,
                       ),
                     ),
                   ),
                   const SizedBox(height: _titleGap),
-                  PriceRow(product: product),
-                  const SizedBox(height: _priceGap),
                   SizedBox(
-                    height: footerHeight,
+                    height: _footerHeight(textScaler),
                     child: Row(
                       children: [
                         Expanded(
-                          child: StockLabel(
-                            stock: product.stock,
-                            fontSize: ProductTextStyles.stockFontSize,
-                            compact: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              PriceRow(product: product),
+                              StockLabel(
+                                stock: product.stock,
+                                fontSize: ProductTextStyles.stockFontSize,
+                                compact: true,
+                              ),
+                            ],
                           ),
                         ),
                         IconButton.filled(
@@ -166,17 +187,13 @@ class ProductCard extends ConsumerWidget {
                             padding: EdgeInsets.zero,
                             tapTargetSize: MaterialTapTargetSize.padded,
                             visualDensity: VisualDensity.standard,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.control,
-                              ),
-                            ),
+                            shape: const CircleBorder(),
                           ),
-                          iconSize: 20,
+                          iconSize: 22,
                           onPressed: product.isOutOfStock
                               ? null
                               : () => addToCart(context, ref, product),
-                          icon: const Icon(Icons.add_shopping_cart_outlined),
+                          icon: const Icon(Icons.add),
                         ),
                       ],
                     ),

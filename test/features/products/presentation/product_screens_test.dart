@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:product_catalog/app.dart';
 import 'package:product_catalog/core/errors/app_exception.dart';
 import 'package:product_catalog/core/riverpod/no_retry.dart';
+import 'package:product_catalog/features/categories/presentation/categories_screen.dart';
 import 'package:product_catalog/features/products/application/catalog_query_provider.dart';
 import 'package:product_catalog/features/products/data/catalog_query.dart';
 import 'package:product_catalog/features/products/data/product.dart';
@@ -74,9 +75,15 @@ void main() {
 
   /// The cart buttons on product cards. Found by icon rather than tooltip,
   /// because a tooltip's reported centre need not lie on its button.
-  final addToCartButtons = find.widgetWithIcon(
-    IconButton,
-    Icons.add_shopping_cart_outlined,
+  final addToCartButtons = find.descendant(
+    of: find.byType(ProductCard),
+    matching: find.widgetWithIcon(IconButton, Icons.add),
+  );
+
+  /// A category card on the Categories tab, found by its Thai name.
+  Finder categoryTile(String name) => find.descendant(
+    of: find.byType(CategoriesScreen),
+    matching: find.text(name),
   );
 
   /// Finishes a page transition without waiting for a loading spinner, which
@@ -119,7 +126,7 @@ void main() {
       expect(find.text(r'$88.00'), findsOneWidget);
       // The struck-through list price only shows when it fits beside the
       // sale price; the wide test font hides it here (checked on detail).
-      expect(find.text('-12%'), findsOneWidget);
+      expect(find.text('−12%'), findsOneWidget);
       expect(find.text('Product 2'), findsOneWidget);
       expect(find.text(r'$9.50'), findsOneWidget);
       expect(find.text('แสดง 2 จาก 2 รายการ'), findsOneWidget);
@@ -244,7 +251,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tap(navItem('หมวดหมู่'));
       await tester.pump(const Duration(milliseconds: 50));
-      await tester.tap(find.widgetWithText(ListTile, 'Beauty'));
+      await tester.tap(categoryTile('ความงาม'));
       await tester.pump();
       repository.listRequests.last.succeed(products(4, 6));
       await tester.pump(searchDebounce);
@@ -304,7 +311,7 @@ void main() {
         ProductCategory(slug: 'beauty', name: 'Beauty'),
       ]);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Beauty'));
+      await tester.tap(find.widgetWithText(ChoiceChip, 'ความงาม'));
       await tester.pump();
       repository.listRequests.last.succeed(products(4, 6));
       await tester.pumpAndSettle();
@@ -313,7 +320,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tap(navItem('หมวดหมู่'));
       await tester.pump(const Duration(milliseconds: 50));
-      await tester.tap(find.widgetWithText(ListTile, 'Beauty'));
+      await tester.tap(categoryTile('ความงาม'));
       await tester.pump(searchDebounce);
       final container = ProviderScope.containerOf(
         tester.element(find.byType(ProductCatalogApp)),
@@ -358,7 +365,7 @@ void main() {
       ]);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Laptops'));
+      await tester.tap(find.widgetWithText(ChoiceChip, 'แล็ปท็อป'));
       await tester.pump();
       expect(repository.listRequests.last.query.categorySlug, 'laptops');
       repository.listRequests.last.succeed([]);
@@ -386,7 +393,7 @@ void main() {
 
       await tester.tap(navItem('หมวดหมู่'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ListTile, 'Skin Care'));
+      await tester.tap(categoryTile('ดูแลผิว'));
       await tester.pump();
 
       expect(repository.listRequests.last.query.categorySlug, 'skin-care');
@@ -482,7 +489,7 @@ void main() {
       expect(find.text('Description of product 9'), findsOneWidget);
 
       // All sections are on the page at once, with no tabs to switch.
-      expect(find.text('30 days return policy'), findsOneWidget);
+      expect(find.text('คืนสินค้าได้ภายใน 30 วัน'), findsOneWidget);
       expect(find.text('รีวิว (1)'), findsOneWidget);
       expect(find.text('Great!'), findsOneWidget);
 
