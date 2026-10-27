@@ -13,14 +13,14 @@ as the API returns them.
 
 ![Phone screens: catalog, search, categories, product detail and cart](docs/screenshots/overview-phone.png)
 
-| Tablet portrait (4 columns) | Tablet landscape (two-pane detail) |
-|---|---|
-| ![](docs/screenshots/tablet-list.png) | ![](docs/screenshots/tablet-detail.png) |
+**Tablet** — portrait catalog (4 columns) · landscape two-pane product detail
+
+![Tablet screens: portrait catalog and landscape product detail](docs/screenshots/overview-tablet.png)
 
 Screenshots were captured on 27 October 2026 from the Android debug build
 of application source `00da610` on an Android 17 (API 37) emulator. Tablet
 sizes (800×1280 dp and 1280×800 dp) were set with `adb shell wm size/density`.
-The phone row is one image with every screenshot scaled to the same height
+Each row is one image with every screenshot scaled to the same height
 (the individual screenshots are in `docs/screenshots/`). Live API products,
 prices, stock and totals may change.
 
