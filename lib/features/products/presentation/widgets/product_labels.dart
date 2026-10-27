@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/formatting/price_format.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../data/product.dart';
 
-/// "-12%" badge; renders nothing when there is no real discount.
+/// "-12%" label; renders nothing when there is no real discount.
 class DiscountBadge extends StatelessWidget {
   const DiscountBadge({super.key, required this.product});
 
@@ -12,22 +13,23 @@ class DiscountBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!product.hasDiscount) return const SizedBox.shrink();
-    final colors = Theme.of(context).colorScheme;
+    final catalog = CatalogColors.of(context);
     return Semantics(
       label: 'ลด ${product.discountBadge}%',
       excludeSemantics: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: colors.errorContainer,
-          borderRadius: BorderRadius.circular(8),
+          color: catalog.saleContainer,
+          borderRadius: BorderRadius.circular(AppRadius.badge),
         ),
         child: Text(
           '-${product.discountBadge}%',
           style: TextStyle(
-            color: colors.onErrorContainer,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            color: catalog.onSaleContainer,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ),
@@ -51,32 +53,36 @@ class RatingLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final reviews = reviewCount == null ? '' : ' ($reviewCount รีวิว)';
+    final reviews = reviewCount == null ? '' : ' · $reviewCount รีวิว';
     return Semantics(
       label: 'คะแนน ${rating.toStringAsFixed(1)} จาก 5$reviews',
       excludeSemantics: true,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.star_rounded, size: fontSize + 2, color: _starColor),
+          Icon(
+            Icons.star_rounded,
+            size: fontSize + 2,
+            color: CatalogColors.of(context).rating,
+          ),
           const SizedBox(width: 2),
           Text(
             '${rating.toStringAsFixed(1)}$reviews',
             style: theme.textTheme.bodySmall?.copyWith(
               fontSize: fontSize,
               height: ProductTextStyles.lineHeight,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
       ),
     );
   }
-
-  static final _starColor = Colors.amber.shade700;
 }
 
-/// Stock status with a coloured dot. Renders an empty line of the same
+/// Stock status. Only low and sold-out stock is coloured, so a full shelf of
+/// products is not covered in green. Renders an empty line of the same
 /// height when the API does not report stock, so card heights stay stable.
 class StockLabel extends StatelessWidget {
   const StockLabel({super.key, required this.stock, this.fontSize = 12});
@@ -90,42 +96,30 @@ class StockLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final stock = this.stock;
     final theme = Theme.of(context);
+    final catalog = CatalogColors.of(context);
     final style = theme.textTheme.bodySmall?.copyWith(
       fontSize: fontSize,
       height: ProductTextStyles.lineHeight,
     );
     if (stock == null) return Text('', style: style);
 
-    final dark = theme.brightness == Brightness.dark;
-    final (text, color) = switch (stock) {
-      0 => ('สินค้าหมด', theme.colorScheme.error),
+    final (text, color, urgent) = switch (stock) {
+      0 => ('สินค้าหมด', catalog.lowStock, true),
       <= lowStockThreshold => (
-        'เหลือเพียง $stock ชิ้น!',
-        theme.colorScheme.error,
+        'เหลือเพียง $stock ชิ้น',
+        catalog.lowStock,
+        true,
       ),
-      _ => (
-        'มีสินค้า $stock ชิ้น',
-        dark ? Colors.green.shade300 : Colors.green.shade700,
-      ),
+      _ => ('มีสินค้า $stock ชิ้น', catalog.inStock, false),
     };
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style?.copyWith(color: color, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style?.copyWith(
+        color: color,
+        fontWeight: urgent ? FontWeight.w600 : FontWeight.w400,
+      ),
     );
   }
 }
@@ -148,10 +142,14 @@ class PriceRow extends StatelessWidget {
     final base = DefaultTextStyle.of(context).style;
     final saleStyle = base.merge(
       TextStyle(
-        fontSize: large ? 26.0 : ProductTextStyles.priceFontSize,
+        fontSize: large ? 28.0 : ProductTextStyles.priceFontSize,
         height: ProductTextStyles.lineHeight,
-        fontWeight: FontWeight.bold,
-        color: theme.colorScheme.primary,
+        fontWeight: FontWeight.w700,
+        // Discounted prices use the sale accent; regular prices stay ink.
+        color: product.hasDiscount
+            ? CatalogColors.of(context).sale
+            : theme.colorScheme.onSurface,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
     final listStyle = base.merge(
@@ -160,6 +158,7 @@ class PriceRow extends StatelessWidget {
         height: ProductTextStyles.lineHeight,
         color: theme.colorScheme.onSurfaceVariant,
         decoration: TextDecoration.lineThrough,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
     final sale = formatPrice(product.salePrice);
@@ -215,7 +214,7 @@ class PriceRow extends StatelessWidget {
 /// Font sizes shared by the card and its height calculation.
 abstract final class ProductTextStyles {
   static const lineHeight = 1.3;
-  static const metaFontSize = 12.0;
+  static const metaFontSize = 11.0;
   static const titleFontSize = 14.0;
   static const priceFontSize = 16.0;
 }

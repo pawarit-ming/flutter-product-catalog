@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../home/application/home_tab_provider.dart';
 import '../../products/application/catalog_query_provider.dart';
 import '../../products/application/categories_provider.dart';
@@ -27,21 +28,51 @@ class CategoriesScreen extends ConsumerWidget {
           message: AppException.from(error).message,
           onAction: () => ref.invalidate(categoriesProvider),
         ),
-        data: (list) => ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+        data: (list) => ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
           itemCount: list.length,
+          separatorBuilder: (_, _) => Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: const Divider(indent: 72),
+            ),
+          ),
           itemBuilder: (context, index) {
             final category = list[index];
+            final isSelected = category.slug == selected;
+            final colors = Theme.of(context).colorScheme;
             return Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 720),
                 child: ListTile(
-                  leading: CircleAvatar(
-                    child: Icon(_iconFor(category.slug), size: 20),
+                  minVerticalPadding: AppSpace.md,
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerLowest,
+                      border: Border.all(color: colors.outlineVariant),
+                      borderRadius: BorderRadius.circular(AppRadius.control),
+                    ),
+                    child: Icon(
+                      _iconFor(category.slug),
+                      size: 20,
+                      color: colors.onSurface,
+                    ),
                   ),
-                  title: Text(category.name),
-                  selected: category.slug == selected,
-                  trailing: const Icon(Icons.chevron_right),
+                  title: Text(
+                    category.name,
+                    style: TextStyle(
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
+                  selected: isSelected,
+                  trailing: Icon(
+                    isSelected ? Icons.check : Icons.chevron_right,
+                    size: 20,
+                  ),
                   onTap: () {
                     ref
                         .read(catalogQueryProvider.notifier)

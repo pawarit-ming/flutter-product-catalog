@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../data/product.dart';
 import '../product_detail_screen.dart';
 import 'product_card.dart';
@@ -99,8 +100,8 @@ class SliverProductSkeletonGrid extends StatelessWidget {
       child: Container(
         height: height,
         decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(6),
+          color: colors.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(AppRadius.badge),
         ),
       ),
     );
@@ -112,20 +113,26 @@ class SliverProductSkeletonGrid extends StatelessWidget {
         gridDelegate: layout.delegate,
         itemCount: count,
         itemBuilder: (context, index) => Card(
-          margin: EdgeInsets.zero,
           clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AspectRatio(
                 aspectRatio: 1,
-                child: ColoredBox(color: colors.surfaceContainerHighest),
+                child: ColoredBox(color: colors.surfaceContainerLow),
               ),
+              const Divider(),
               Padding(
                 padding: const EdgeInsets.all(ProductCard.padding),
                 child: Column(
-                  spacing: 8,
-                  children: [bar(0.5, 10), bar(0.9, 12), bar(0.6, 12)],
+                  spacing: AppSpace.sm,
+                  children: [
+                    bar(0.4, 8),
+                    bar(0.9, 12),
+                    bar(0.7, 12),
+                    const SizedBox(height: AppSpace.xs),
+                    bar(0.35, 14),
+                  ],
                 ),
               ),
             ],

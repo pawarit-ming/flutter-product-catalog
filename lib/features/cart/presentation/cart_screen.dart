@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/formatting/price_format.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../home/application/home_tab_provider.dart';
 import '../../products/presentation/product_detail_screen.dart';
 import '../../products/presentation/widgets/error_view.dart';
@@ -9,6 +10,9 @@ import '../../products/presentation/widgets/product_image.dart';
 import '../../products/presentation/widgets/product_labels.dart';
 import '../application/cart_provider.dart';
 import 'quantity_stepper.dart';
+
+const _maxCartWidth = 720.0;
+const _thumbSize = 72.0;
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -34,6 +38,9 @@ class CartScreen extends ConsumerWidget {
     if (confirmed ?? false) ref.read(cartProvider.notifier).clear();
   }
 
+  void _keepShopping(WidgetRef ref) =>
+      ref.read(homeTabProvider.notifier).select(HomeTab.catalog);
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(cartProvider);
@@ -42,42 +49,88 @@ class CartScreen extends ConsumerWidget {
         title: const Text('ตะกร้าสินค้า'),
         actions: [
           if (items.isNotEmpty)
-            IconButton(
-              tooltip: 'ล้างตะกร้า',
+            TextButton(
               onPressed: () => _confirmClear(context, ref),
-              icon: const Icon(Icons.delete_sweep_outlined),
+              child: const Text('ล้างตะกร้า'),
             ),
+          const SizedBox(width: AppSpace.sm),
         ],
       ),
       body: items.isEmpty
           ? MessageView(
-              icon: Icons.shopping_cart_outlined,
+              icon: Icons.shopping_bag_outlined,
               title: 'ตะกร้าว่างเปล่า',
               message: 'เลือกสินค้าที่ชอบแล้วกด "ใส่ตะกร้า"',
               action: FilledButton(
-                onPressed: () =>
-                    ref.read(homeTabProvider.notifier).select(HomeTab.catalog),
+                onPressed: () => _keepShopping(ref),
                 child: const Text('เลือกซื้อสินค้า'),
               ),
             )
           : Column(
               children: [
                 Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) => Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 720),
-                        child: _CartLine(item: items[index]),
+                  child: ListView(
+                    padding: const EdgeInsets.all(AppSpace.lg),
+                    children: [
+                      _Constrained(
+                        child: _Group(
+                          children: [
+                            for (final item in items) _CartLine(item: item),
+                          ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: AppSpace.lg),
+                      const _Constrained(child: _OrderSummary()),
+                      const SizedBox(height: AppSpace.md),
+                      const _Constrained(child: _CheckoutNote()),
+                    ],
                   ),
                 ),
-                const _CartSummary(),
+                _TotalBar(onKeepShopping: () => _keepShopping(ref)),
               ],
             ),
+    );
+  }
+}
+
+class _Constrained extends StatelessWidget {
+  const _Constrained({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _maxCartWidth),
+      child: child,
+    ),
+  );
+}
+
+/// White grouped surface with hairline separators between children.
+class _Group extends StatelessWidget {
+  const _Group({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const Divider(),
+            children[i],
+          ],
+        ],
+      ),
     );
   }
 }
@@ -91,77 +144,106 @@ class _CartLine extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final product = item.product;
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final cart = ref.read(cartProvider.notifier);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => ProductDetailScreen.open(context, product.id),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox.square(
-                  dimension: 80,
-                  child: ProductImage(
-                    url: product.cardImageUrl,
-                    label: product.title,
-                  ),
-                ),
+    return InkWell(
+      onTap: () => ProductDetailScreen.open(context, product.id),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.md),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: _thumbSize,
+              height: _thumbSize,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadius.thumb),
+                border: Border.all(color: colors.outlineVariant),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    PriceRow(product: product),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        QuantityStepper(
-                          value: item.quantity,
-                          max: CartItem.maxQuantityFor(product),
-                          onChanged: (value) =>
-                              cart.setQuantity(product.id, value),
-                        ),
-                        Text(
-                          formatPrice(item.lineTotal),
+              child: ProductImage(
+                url: product.cardImageUrl,
+                label: product.title,
+                padding: AppSpace.sm,
+              ),
+            ),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          product.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleSmall,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      SizedBox.square(
+                        dimension: 32,
+                        child: IconButton(
+                          tooltip: 'นำออกจากตะกร้า',
+                          padding: EdgeInsets.zero,
+                          iconSize: 18,
+                          onPressed: () => cart.remove(product.id),
+                          icon: Icon(
+                            Icons.close,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  PriceRow(product: product),
+                  const SizedBox(height: AppSpace.sm),
+                  Row(
+                    children: [
+                      QuantityStepper(
+                        dense: true,
+                        value: item.quantity,
+                        max: CartItem.maxQuantityFor(product),
+                        onChanged: (value) =>
+                            cart.setQuantity(product.id, value),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              formatPrice(item.lineTotal),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              IconButton(
-                tooltip: 'นำออกจากตะกร้า',
-                onPressed: () => cart.remove(product.id),
-                icon: const Icon(Icons.delete_outline),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _CartSummary extends ConsumerWidget {
-  const _CartSummary();
+/// Price breakdown right below the items.
+class _OrderSummary extends ConsumerWidget {
+  const _OrderSummary();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -169,40 +251,124 @@ class _CartSummary extends ConsumerWidget {
     final totals = ref.watch(cartTotalsProvider);
     final count = ref.watch(cartCountProvider);
 
-    return Material(
-      elevation: 3,
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.lg),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('สรุปยอด', style: theme.textTheme.titleSmall),
+          const SizedBox(height: AppSpace.md),
+          _AmountRow(
+            label: 'ราคาสินค้า ($count ชิ้น)',
+            value: formatPrice(totals.listTotal),
+          ),
+          if (totals.savings > 0)
+            _AmountRow(
+              label: 'ส่วนลด',
+              value: '-${formatPrice(totals.savings)}',
+              color: CatalogColors.of(context).sale,
+            ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpace.md),
+            child: Divider(),
+          ),
+          _AmountRow(
+            label: 'ยอดรวม',
+            value: formatPrice(totals.subtotal),
+            emphasize: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CheckoutNote extends StatelessWidget {
+  const _CheckoutNote();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.info_outline, size: 16, color: muted),
+        const SizedBox(width: AppSpace.sm),
+        Expanded(
+          child: Text(
+            'แอปตัวอย่างนี้ยังไม่มีขั้นตอนชำระเงิน ตะกร้าจะถูกล้างเมื่อปิดแอป',
+            style: theme.textTheme.bodySmall?.copyWith(color: muted),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Always-visible total with a way back to the catalog.
+class _TotalBar extends ConsumerWidget {
+  const _TotalBar({required this.onKeepShopping});
+
+  final VoidCallback onKeepShopping;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final totals = ref.watch(cartTotalsProvider);
+    final count = ref.watch(cartCountProvider);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: colors.outlineVariant)),
+      ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            heightFactor: 1,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _SummaryRow(label: 'จำนวนสินค้า', value: '$count ชิ้น'),
-                  if (totals.savings > 0)
-                    _SummaryRow(
-                      label: 'ส่วนลดรวม',
-                      value: '-${formatPrice(totals.savings)}',
-                      color: theme.colorScheme.error,
-                    ),
-                  _SummaryRow(
-                    label: 'ยอดรวม',
-                    value: formatPrice(totals.subtotal),
-                    emphasize: true,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.lg,
+            vertical: AppSpace.md,
+          ),
+          child: _Constrained(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ยอดรวม · $count ชิ้น',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          formatPrice(totals.subtotal),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'แอปตัวอย่างนี้ยังไม่มีระบบชำระเงิน',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: AppSpace.md),
+                OutlinedButton(
+                  onPressed: onKeepShopping,
+                  child: const Text('เลือกซื้อต่อ'),
+                ),
+              ],
             ),
           ),
         ),
@@ -211,8 +377,8 @@ class _CartSummary extends ConsumerWidget {
   }
 }
 
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
+class _AmountRow extends StatelessWidget {
+  const _AmountRow({
     required this.label,
     required this.value,
     this.emphasize = false,
@@ -227,23 +393,34 @@ class _SummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = emphasize
-        ? theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
-        : theme.textTheme.bodyLarge;
+    final labelStyle = emphasize
+        ? theme.textTheme.titleSmall
+        : theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          );
+    final valueStyle =
+        (emphasize
+                ? theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  )
+                : theme.textTheme.bodyMedium)
+            ?.copyWith(
+              color: color,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: style)),
-          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: labelStyle)),
+          const SizedBox(width: AppSpace.sm),
           // Large totals at big text sizes shrink instead of overflowing.
           Expanded(
-            flex: 2,
             child: Align(
               alignment: Alignment.centerRight,
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Text(value, style: style?.copyWith(color: color)),
+                child: Text(value, style: valueStyle),
               ),
             ),
           ),

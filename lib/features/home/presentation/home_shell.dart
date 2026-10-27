@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../cart/application/cart_provider.dart';
 import '../../cart/presentation/cart_screen.dart';
 import '../../categories/presentation/categories_screen.dart';
@@ -20,16 +21,21 @@ class HomeShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tab = ref.watch(homeTabProvider);
     final cartCount = ref.watch(cartCountProvider);
-    void select(int index) =>
-        ref.read(homeTabProvider.notifier).select(HomeTab.values[index]);
+    void select(int index) {
+      // A confirmation such as "added to cart · view cart" belongs to the
+      // tab it was shown on.
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ref.read(homeTabProvider.notifier).select(HomeTab.values[index]);
+    }
 
     final cartIcon = Badge(
       isLabelVisible: cartCount > 0,
+      backgroundColor: CatalogColors.of(context).sale,
       label: Text('$cartCount'),
-      child: const Icon(Icons.shopping_cart_outlined),
+      child: const Icon(Icons.shopping_bag_outlined),
     );
     final destinations = [
-      (Icons.grid_view_outlined, Icons.grid_view, 'แคตตาล็อก'),
+      (Icons.storefront_outlined, Icons.storefront, 'แคตตาล็อก'),
       (Icons.category_outlined, Icons.category, 'หมวดหมู่'),
       (Icons.favorite_border, Icons.favorite, 'รายการโปรด'),
     ];
@@ -82,18 +88,27 @@ class HomeShell extends ConsumerWidget {
         }
         return Scaffold(
           body: stack,
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: tab.index,
-            onDestinationSelected: select,
-            destinations: [
-              for (final (icon, selectedIcon, label) in destinations)
-                NavigationDestination(
-                  icon: Icon(icon),
-                  selectedIcon: Icon(selectedIcon),
-                  label: label,
+          bottomNavigationBar: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
                 ),
-              NavigationDestination(icon: cartIcon, label: 'ตะกร้า'),
-            ],
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: tab.index,
+              onDestinationSelected: select,
+              destinations: [
+                for (final (icon, selectedIcon, label) in destinations)
+                  NavigationDestination(
+                    icon: Icon(icon),
+                    selectedIcon: Icon(selectedIcon),
+                    label: label,
+                  ),
+                NavigationDestination(icon: cartIcon, label: 'ตะกร้า'),
+              ],
+            ),
           ),
         );
       },

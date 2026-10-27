@@ -60,6 +60,7 @@ void main() {
       final totals = container.read(cartTotalsProvider);
       expect(totals.subtotal, 230);
       expect(totals.savings, 20);
+      expect(totals.listTotal, 250);
     });
 
     test('remove and clear', () {

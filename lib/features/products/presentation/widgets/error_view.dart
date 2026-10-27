@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
+
 /// Full-area message with an optional action, used for errors and "not found".
 class ErrorView extends StatelessWidget {
   const ErrorView({
@@ -27,9 +29,9 @@ class ErrorView extends StatelessWidget {
       message: message,
       action: onAction == null
           ? null
-          : FilledButton.icon(
+          : OutlinedButton.icon(
               onPressed: onAction,
-              icon: Icon(actionIcon),
+              icon: Icon(actionIcon, size: 18),
               label: Text(actionLabel),
             ),
     );
@@ -62,14 +64,14 @@ class MessageView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 56, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(height: 16),
+              Icon(icon, size: 36, color: theme.colorScheme.outline),
+              const SizedBox(height: AppSpace.lg),
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.titleLarge,
+                style: theme.textTheme.titleMedium,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpace.xs),
               Text(
                 message,
                 textAlign: TextAlign.center,
@@ -77,7 +79,10 @@ class MessageView extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              if (action != null) ...[const SizedBox(height: 24), action!],
+              if (action != null) ...[
+                const SizedBox(height: AppSpace.xl),
+                action!,
+              ],
             ],
           ),
         ),

@@ -35,8 +35,12 @@ final cartCountProvider = Provider<int>(
 class CartTotals {
   const CartTotals({required this.subtotal, required this.savings});
 
+  /// What the customer pays (discounted prices).
   final double subtotal;
   final double savings;
+
+  /// Sum of list prices before discounts.
+  double get listTotal => subtotal + savings;
 }
 
 final cartTotalsProvider = Provider<CartTotals>((ref) {

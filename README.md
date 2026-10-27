@@ -14,6 +14,30 @@ tablets. UI text is Thai; product data is shown as the API returns it.
 |---|---|
 | ![](docs/screenshots/tablet-list.png) | ![](docs/screenshots/tablet-detail.png) |
 
+## Design
+
+The visual direction is a calm retail catalogue rather than a default
+Material demo. It is defined once in `lib/core/theme/app_theme.dart`:
+
+- **Palette**: warm "paper" background, near-black "ink" for text and primary
+  buttons, and a single brick-red accent reserved for sale prices,
+  discounts and low stock. Light and dark themes share the same tokens.
+  `CatalogColors` (a `ThemeExtension`) holds the retail-specific colours.
+- **Surfaces**: flat. Cards, the gallery and lists use 1 px hairline borders
+  instead of shadows. Product photos sit whole (`BoxFit.contain`) on white
+  tiles instead of being cropped.
+- **Shape and spacing**: a small corner-radius scale (4 badge · 8 thumbnail ·
+  10 control · 12 card) and a 4/8/12/16/24 spacing scale (`AppSpace`,
+  `AppRadius`).
+- **Type**:
+  - uppercase, letter-spaced category and brand labels;
+  - tabular figures for prices, quantities and totals;
+  - colour only where it carries meaning — discounted prices, and "only N
+    left" / out of stock. Normal stock text stays neutral.
+- **Components**: ink filter pills without checkmarks; text tabs with an
+  underline on the detail page; two-column spec tables with hairline rows;
+  cart lines separated by dividers instead of nested cards.
+
 ## Requirements checklist
 
 | # | Requirement | Where |

@@ -233,9 +233,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ไม่มีสินค้าในหมวดนี้'), findsOneWidget);
 
-      await tester.tap(find.text('แนะนำ'));
+      await tester.tap(find.byTooltip('เรียงลำดับ'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('ราคา: ต่ำ → สูง').last);
+      await tester.tap(find.text('ราคาต่ำไปสูง'));
       await tester.pumpAndSettle();
 
       final request = repository.listRequests.last;
@@ -243,7 +243,7 @@ void main() {
       expect(request.query.categorySlug, 'laptops');
       request.succeed(products(1, 2));
       await tester.pumpAndSettle();
-      expect(find.text('ราคา: ต่ำ → สูง'), findsOneWidget);
+      expect(find.text('ราคาต่ำไปสูง'), findsOneWidget);
     });
 
     testWidgets('picking a category tab filters the catalog', (tester) async {
@@ -284,8 +284,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ตะกร้าสินค้า'), findsOneWidget);
       expect(find.text('Product 1'), findsOneWidget);
-      expect(find.text('2 ชิ้น'), findsOneWidget);
-      expect(find.text(r'$40.00'), findsNWidgets(2)); // line and total
+      expect(find.text('ยอดรวม · 2 ชิ้น'), findsOneWidget);
+      // Line total, list-price subtotal, summary total and the total bar.
+      expect(find.text(r'$40.00'), findsNWidgets(4));
 
       await tester.tap(find.byTooltip('นำออกจากตะกร้า'));
       await tester.pumpAndSettle();
@@ -375,7 +376,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ตะกร้าสินค้า'), findsOneWidget);
-      expect(find.text('3 ชิ้น'), findsOneWidget);
+      expect(find.text('ยอดรวม · 3 ชิ้น'), findsOneWidget);
     });
 
     testWidgets('out of stock disables buying', (tester) async {

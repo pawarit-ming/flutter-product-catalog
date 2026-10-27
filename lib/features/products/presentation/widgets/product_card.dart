@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../cart/presentation/add_to_cart.dart';
 import '../../../wishlist/presentation/wishlist_button.dart';
 import '../../data/product.dart';
@@ -12,9 +13,9 @@ import 'product_labels.dart';
 class ProductCard extends ConsumerWidget {
   const ProductCard({super.key, required this.product, required this.onTap});
 
-  static const padding = 10.0;
-  static const _metaGap = 4.0;
-  static const _titleGap = 6.0;
+  static const padding = AppSpace.md;
+  static const _metaGap = 6.0;
+  static const _titleGap = AppSpace.sm;
   static const _priceGap = 2.0;
   static const _buttonSize = 48.0;
 
@@ -26,7 +27,7 @@ class ProductCard extends ConsumerWidget {
     final priceAndStock =
         line(ProductTextStyles.priceFontSize) +
         _priceGap +
-        line(ProductTextStyles.metaFontSize);
+        line(ProductTextStyles.metaFontSize + 1);
     return width +
         padding * 2 +
         line(ProductTextStyles.metaFontSize) +
@@ -44,13 +45,13 @@ class ProductCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final rating = product.rating;
     final metaLine =
         MediaQuery.textScalerOf(context).scale(ProductTextStyles.metaFontSize) *
         ProductTextStyles.lineHeight;
 
     return Card(
-      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -62,20 +63,25 @@ class ProductCard extends ConsumerWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ProductImage(url: product.cardImageUrl, label: product.title),
+                  ProductImage(
+                    url: product.cardImageUrl,
+                    label: product.title,
+                    padding: AppSpace.lg,
+                  ),
                   Positioned(
-                    top: 8,
-                    left: 8,
+                    top: AppSpace.sm,
+                    left: AppSpace.sm,
                     child: DiscountBadge(product: product),
                   ),
                   Positioned(
-                    top: 2,
-                    right: 2,
-                    child: WishlistButton(product: product, onImage: true),
+                    top: 0,
+                    right: 0,
+                    child: WishlistButton(product: product),
                   ),
                 ],
               ),
             ),
+            const Divider(),
             Padding(
               padding: const EdgeInsets.all(padding),
               child: Column(
@@ -87,17 +93,21 @@ class ProductCard extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            product.categoryName,
+                            product.categoryName.toUpperCase(),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
+                            style: theme.textTheme.labelSmall?.copyWith(
                               fontSize: ProductTextStyles.metaFontSize,
                               height: ProductTextStyles.lineHeight,
-                              color: theme.colorScheme.onSurfaceVariant,
+                              color: colors.onSurfaceVariant,
                             ),
                           ),
                         ),
-                        if (rating != null) RatingLabel(rating: rating),
+                        if (rating != null)
+                          RatingLabel(
+                            rating: rating,
+                            fontSize: ProductTextStyles.metaFontSize,
+                          ),
                       ],
                     ),
                   ),
@@ -120,16 +130,29 @@ class ProductCard extends ConsumerWidget {
                           children: [
                             PriceRow(product: product),
                             const SizedBox(height: _priceGap),
-                            StockLabel(stock: product.stock),
+                            StockLabel(
+                              stock: product.stock,
+                              fontSize: ProductTextStyles.metaFontSize + 1,
+                            ),
                           ],
                         ),
                       ),
                       IconButton.filled(
                         tooltip: 'ใส่ตะกร้า',
+                        style: IconButton.styleFrom(
+                          fixedSize: const Size.square(40),
+                          minimumSize: const Size.square(40),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.control,
+                            ),
+                          ),
+                        ),
+                        iconSize: 20,
                         onPressed: product.isOutOfStock
                             ? null
                             : () => addToCart(context, ref, product),
-                        icon: const Icon(Icons.add),
+                        icon: const Icon(Icons.add_shopping_cart_outlined),
                       ),
                     ],
                   ),

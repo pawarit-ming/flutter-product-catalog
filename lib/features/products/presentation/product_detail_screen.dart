@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../core/formatting/price_format.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../cart/application/cart_provider.dart';
 import '../../cart/presentation/add_to_cart.dart';
 import '../../cart/presentation/quantity_stepper.dart';
@@ -114,7 +115,7 @@ class _ProductDetailBody extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: gallery),
-              const SizedBox(width: 32),
+              const SizedBox(width: 40),
               Expanded(child: info),
             ],
           );
@@ -128,14 +129,19 @@ class _ProductDetailBody extends StatelessWidget {
                   child: gallery,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpace.xl),
               info,
             ],
           );
         }
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.lg,
+            AppSpace.sm,
+            AppSpace.lg,
+            AppSpace.xl,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: maxContentWidth),
@@ -177,8 +183,12 @@ class _GalleryState extends State<_Gallery> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+        Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(color: colors.outlineVariant),
+          ),
           child: AspectRatio(
             aspectRatio: 1,
             child: Stack(
@@ -194,31 +204,34 @@ class _GalleryState extends State<_Gallery> {
                     itemBuilder: (context, index) => ProductImage(
                       url: images[index],
                       label: '${product.title} รูปที่ ${index + 1}',
+                      padding: AppSpace.xl,
                     ),
                   ),
                 Positioned(
-                  top: 12,
-                  left: 12,
+                  top: AppSpace.md,
+                  left: AppSpace.md,
                   child: DiscountBadge(product: product),
                 ),
                 if (images.length > 1)
                   Positioned(
-                    right: 12,
-                    bottom: 12,
+                    right: AppSpace.md,
+                    bottom: AppSpace.md,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                        horizontal: AppSpace.sm,
+                        vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: colors.inverseSurface.withValues(alpha: 0.75),
-                        borderRadius: BorderRadius.circular(12),
+                        color: colors.inverseSurface,
+                        borderRadius: BorderRadius.circular(AppRadius.badge),
                       ),
                       child: Text(
-                        '${_page + 1}/${images.length}',
+                        '${_page + 1} / ${images.length}',
                         style: TextStyle(
                           color: colors.onInverseSurface,
-                          fontSize: 12,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ),
@@ -228,11 +241,11 @@ class _GalleryState extends State<_Gallery> {
           ),
         ),
         if (images.length > 1) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpace.md),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              spacing: 8,
+              spacing: AppSpace.sm,
               children: [
                 for (var i = 0; i < images.length; i++)
                   Semantics(
@@ -240,7 +253,7 @@ class _GalleryState extends State<_Gallery> {
                     selected: i == _page,
                     label: 'ดูรูปที่ ${i + 1}',
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppRadius.thumb),
                       onTap: () => _pageController.animateToPage(
                         i,
                         duration: const Duration(milliseconds: 250),
@@ -251,16 +264,20 @@ class _GalleryState extends State<_Gallery> {
                         height: 56,
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppRadius.thumb),
                           border: Border.all(
-                            width: 2,
+                            width: i == _page ? 1.5 : 1,
                             color: i == _page
                                 ? colors.primary
                                 : colors.outlineVariant,
                           ),
                         ),
                         child: ExcludeSemantics(
-                          child: ProductImage(url: images[i], label: ''),
+                          child: ProductImage(
+                            url: images[i],
+                            label: '',
+                            padding: AppSpace.xs,
+                          ),
                         ),
                       ),
                     ),
@@ -299,82 +316,56 @@ class _ProductInfoState extends State<_ProductInfo> {
     final product = widget.product;
     final theme = Theme.of(context);
     final rating = product.rating;
-    final shipping = product.shippingInformation;
+    final stock = product.stock;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          [
-            ?product.brand,
-            product.categoryName,
-            if (product.sku case final sku?) 'SKU: $sku',
-          ].join(' • '),
-          style: theme.textTheme.bodySmall?.copyWith(
+          [?product.brand, product.categoryName].join(' · ').toUpperCase(),
+          style: theme.textTheme.labelSmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpace.sm),
         Text(product.title, style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            if (rating != null)
-              RatingLabel(
-                rating: rating,
-                reviewCount: product.reviews.length,
-                fontSize: 14,
-              ),
-            if (product.warrantyInformation case final warranty?)
-              _InfoChip(icon: Icons.verified_user_outlined, text: warranty),
-          ],
-        ),
-        const SizedBox(height: 16),
-        PriceRow(product: product, large: true),
-        if (product.hasDiscount) ...[
-          const SizedBox(height: 6),
-          _InfoChip(
-            icon: Icons.local_offer_outlined,
-            text:
-                'ประหยัด ${formatPrice(product.savings)} '
-                '(${product.discountBadge}%)',
-            highlight: true,
+        if (rating != null) ...[
+          const SizedBox(height: AppSpace.sm),
+          RatingLabel(
+            rating: rating,
+            reviewCount: product.reviews.length,
+            fontSize: 14,
           ),
         ],
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 16,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            StockLabel(stock: product.stock, fontSize: 14),
-            if (shipping != null)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.local_shipping_outlined,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(shipping, style: theme.textTheme.bodyMedium),
-                  ),
-                ],
-              ),
-          ],
-        ),
+        const SizedBox(height: AppSpace.lg),
+        PriceRow(product: product, large: true),
+        if (product.hasDiscount) ...[
+          const SizedBox(height: AppSpace.xs),
+          Text(
+            'ประหยัด ${formatPrice(product.savings)} '
+            '(${product.discountBadge}%)',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: CatalogColors.of(context).sale,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        const SizedBox(height: AppSpace.lg),
+        const Divider(),
+        if (stock != null)
+          _FactRow(
+            icon: Icons.inventory_2_outlined,
+            child: StockLabel(stock: stock, fontSize: 14),
+          ),
+        if (product.shippingInformation case final shipping?)
+          _FactRow(icon: Icons.local_shipping_outlined, text: shipping),
+        if (product.warrantyInformation case final warranty?)
+          _FactRow(icon: Icons.verified_user_outlined, text: warranty),
         if (!product.isOutOfStock) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpace.md),
           Row(
             children: [
-              Expanded(
-                child: Text('จำนวน', style: theme.textTheme.titleMedium),
-              ),
+              Expanded(child: Text('จำนวน', style: theme.textTheme.titleSmall)),
               QuantityStepper(
                 value: widget.quantity,
                 max: CartItem.maxQuantityFor(product),
@@ -383,30 +374,118 @@ class _ProductInfoState extends State<_ProductInfo> {
             ],
           ),
         ],
-        const SizedBox(height: 20),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final tab in _InfoTab.values)
-              ChoiceChip(
-                label: Text(switch (tab) {
-                  _InfoTab.details => 'รายละเอียด',
-                  _InfoTab.shipping => 'การจัดส่งและคืนสินค้า',
-                  _InfoTab.reviews => 'รีวิว (${product.reviews.length})',
-                }),
-                selected: _tab == tab,
-                onSelected: (_) => setState(() => _tab = tab),
-              ),
-          ],
+        const SizedBox(height: AppSpace.xl),
+        _SectionTabs(
+          selected: _tab,
+          labels: {
+            _InfoTab.details: 'รายละเอียด',
+            _InfoTab.shipping: 'การจัดส่งและคืนสินค้า',
+            _InfoTab.reviews: 'รีวิว (${product.reviews.length})',
+          },
+          onSelected: (tab) => setState(() => _tab = tab),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpace.lg),
         switch (_tab) {
           _InfoTab.details => _DetailsTab(product: product),
           _InfoTab.shipping => _ShippingTab(product: product),
           _InfoTab.reviews => _ReviewsTab(product: product),
         },
       ],
+    );
+  }
+}
+
+/// One line of key facts under the price (stock, shipping, warranty).
+class _FactRow extends StatelessWidget {
+  const _FactRow({required this.icon, this.text, this.child})
+    : assert(text != null || child != null);
+
+  final IconData icon;
+  final String? text;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: child ?? Text(text!, style: theme.textTheme.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Text tabs with an underline, for switching the sections below.
+class _SectionTabs extends StatelessWidget {
+  const _SectionTabs({
+    required this.selected,
+    required this.labels,
+    required this.onSelected,
+  });
+
+  final _InfoTab selected;
+  final Map<_InfoTab, String> labels;
+  final ValueChanged<_InfoTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final MapEntry(key: tab, value: label) in labels.entries)
+              Semantics(
+                selected: tab == selected,
+                button: true,
+                child: InkWell(
+                  onTap: () => onSelected(tab),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpace.md,
+                    ),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          width: 2,
+                          color: tab == selected
+                              ? colors.primary
+                              : Colors.transparent,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      label,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: tab == selected
+                            ? colors.onSurface
+                            : colors.onSurfaceVariant,
+                        fontWeight: tab == selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -428,31 +507,35 @@ class _DetailsTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(product.description, style: theme.textTheme.bodyLarge),
-        const SizedBox(height: 16),
-        _SpecRow(label: 'แบรนด์', value: product.brand),
-        _SpecRow(label: 'หมวดหมู่', value: product.categoryName),
-        // The API gives no units for size and weight.
-        _SpecRow(
-          label: 'ขนาด (กว้าง × สูง × ลึก)',
-          value: dimensions == null
-              ? null
-              : '${number(dimensions.width)} × ${number(dimensions.height)} '
-                    '× ${number(dimensions.depth)}',
-        ),
-        _SpecRow(
-          label: 'น้ำหนัก',
-          value: weight == null ? null : number(weight),
+        const SizedBox(height: AppSpace.xl),
+        Text('ข้อมูลจำเพาะ', style: theme.textTheme.titleSmall),
+        const SizedBox(height: AppSpace.xs),
+        _SpecTable(
+          rows: {
+            'แบรนด์': product.brand,
+            'หมวดหมู่': product.categoryName,
+            'SKU': product.sku,
+            // The API gives no units for size and weight.
+            'ขนาด (ก × ส × ล)': dimensions == null
+                ? null
+                : '${number(dimensions.width)} × '
+                      '${number(dimensions.height)} × '
+                      '${number(dimensions.depth)}',
+            'น้ำหนัก': weight == null ? null : number(weight),
+          },
         ),
         if (product.tags.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpace.lg),
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: AppSpace.md,
+            runSpacing: AppSpace.xs,
             children: [
               for (final tag in product.tags)
-                Chip(
-                  label: Text('#$tag'),
-                  visualDensity: VisualDensity.compact,
+                Text(
+                  '#$tag',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
             ],
           ),
@@ -469,23 +552,55 @@ class _ShippingTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _SpecTable(
+      rows: {
+        'การจัดส่ง': product.shippingInformation,
+        'การรับประกัน': product.warrantyInformation,
+        'การคืนสินค้า': product.returnPolicy,
+      },
+    );
+  }
+}
+
+/// Two-column key/value list separated by hairlines.
+class _SpecTable extends StatelessWidget {
+  const _SpecTable({required this.rows});
+
+  final Map<String, String?> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       children: [
-        _SpecRow(
-          icon: Icons.local_shipping_outlined,
-          label: 'การจัดส่ง',
-          value: product.shippingInformation,
-        ),
-        _SpecRow(
-          icon: Icons.verified_user_outlined,
-          label: 'การรับประกัน',
-          value: product.warrantyInformation,
-        ),
-        _SpecRow(
-          icon: Icons.assignment_return_outlined,
-          label: 'การคืนสินค้า',
-          value: product.returnPolicy,
-        ),
+        for (final MapEntry(key: label, value: value) in rows.entries) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    value ?? 'ไม่ระบุ',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+        ],
       ],
     );
   }
@@ -499,122 +614,70 @@ class _ReviewsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     if (product.reviews.isEmpty) {
-      return Text('ยังไม่มีรีวิว', style: theme.textTheme.bodyMedium);
+      return Text(
+        'ยังไม่มีรีวิว',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: colors.onSurfaceVariant,
+        ),
+      );
     }
     final dateFormat = DateFormat('d/M/y');
+    final starColor = CatalogColors.of(context).rating;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final review in product.reviews)
-          Card.outlined(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        review.reviewerName,
-                        style: theme.textTheme.titleSmall,
-                      ),
-                      RatingLabel(rating: review.rating),
-                      if (review.date case final date?)
-                        Text(
-                          dateFormat.format(date),
-                          style: theme.textTheme.bodySmall,
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(review.comment, style: theme.textTheme.bodyMedium),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _SpecRow extends StatelessWidget {
-  const _SpecRow({required this.label, required this.value, this.icon});
-
-  final String label;
-  final String? value;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 20, color: theme.colorScheme.primary),
-            const SizedBox(width: 12),
-          ],
-          Expanded(
+        for (final review in product.reviews) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        review.reviewerName,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                    ),
+                    if (review.date case final date?)
+                      Text(
+                        dateFormat.format(date),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpace.xs),
+                Semantics(
+                  label: 'ให้ ${review.rating.round()} ดาว',
+                  excludeSemantics: true,
+                  child: Row(
+                    children: [
+                      for (var i = 1; i <= 5; i++)
+                        Icon(
+                          i <= review.rating.round()
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          size: 16,
+                          color: i <= review.rating.round()
+                              ? starColor
+                              : colors.outline,
+                        ),
+                    ],
                   ),
                 ),
-                Text(value ?? 'ไม่ระบุ', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: AppSpace.sm),
+                Text(review.comment, style: theme.textTheme.bodyMedium),
               ],
             ),
           ),
+          const Divider(),
         ],
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.text,
-    this.highlight = false,
-  });
-
-  final IconData icon;
-  final String text;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final foreground = highlight
-        ? colors.onErrorContainer
-        : colors.onSecondaryContainer;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: highlight ? colors.errorContainer : colors.secondaryContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: foreground),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 13, color: foreground),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -628,6 +691,7 @@ class _PurchaseBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = Theme.of(context).colorScheme;
     final buttonStyle = ButtonStyle(
       minimumSize: WidgetStateProperty.all(const Size(0, 52)),
     );
@@ -647,13 +711,13 @@ class _PurchaseBar extends ConsumerWidget {
               style: buttonStyle,
               onPressed: () =>
                   addToCart(context, ref, product, quantity: quantity),
-              icon: const Icon(Icons.add_shopping_cart),
+              icon: const Icon(Icons.add_shopping_cart_outlined, size: 20),
               label: const Text('ใส่ตะกร้า'),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpace.md),
           Expanded(
-            child: FilledButton.icon(
+            child: FilledButton(
               style: buttonStyle,
               onPressed: () {
                 final result = ref
@@ -663,19 +727,24 @@ class _PurchaseBar extends ConsumerWidget {
                   showCart(context, ref);
                 }
               },
-              icon: const Icon(Icons.flash_on),
-              label: const Text('ซื้อเลย'),
+              child: const Text('ซื้อเลย'),
             ),
           ),
         ],
       );
     }
 
-    return Material(
-      elevation: 3,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.outlineVariant)),
+      ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.lg,
+            vertical: AppSpace.md,
+          ),
           child: Center(
             heightFactor: 1,
             child: ConstrainedBox(

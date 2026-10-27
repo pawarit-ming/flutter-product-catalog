@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../core/theme/app_theme.dart';
 import '../application/catalog_query_provider.dart';
 import '../application/categories_provider.dart';
 import '../application/product_list_notifier.dart';
@@ -19,10 +20,10 @@ const searchDebounce = Duration(milliseconds: 400);
 extension ProductSortLabel on ProductSort {
   String get label => switch (this) {
     ProductSort.recommended => 'แนะนำ',
-    ProductSort.priceLowToHigh => 'ราคา: ต่ำ → สูง',
-    ProductSort.priceHighToLow => 'ราคา: สูง → ต่ำ',
-    ProductSort.ratingHighToLow => 'คะแนนสูงสุด',
-    ProductSort.titleAToZ => 'ชื่อ A → Z',
+    ProductSort.priceLowToHigh => 'ราคาต่ำไปสูง',
+    ProductSort.priceHighToLow => 'ราคาสูงไปต่ำ',
+    ProductSort.ratingHighToLow => 'คะแนนรีวิวสูงสุด',
+    ProductSort.titleAToZ => 'ชื่อสินค้า A–Z',
   };
 }
 
@@ -277,22 +278,17 @@ class _CatalogHeader extends ConsumerWidget {
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: 'ค้นหาสินค้า เช่น iPhone, น้ำหอม',
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const Icon(Icons.search, size: 20),
                   suffixIcon: searchController.text.isEmpty
                       ? null
                       : IconButton(
                           tooltip: 'ล้างการค้นหา',
                           onPressed: onClearSearch,
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(Icons.close, size: 20),
                         ),
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpace.md),
               _CategoryChips(query: query, onSelected: onCategorySelected),
               _ResultBar(query: query),
             ],
@@ -315,11 +311,21 @@ class _CategoryChips extends ConsumerWidget {
     final colors = Theme.of(context).colorScheme;
     final selectedSlug = query.isSearching ? null : query.categorySlug;
 
-    Widget chip(String label, String? slug) => ChoiceChip(
-      label: Text(label),
-      selected: !query.isSearching && selectedSlug == slug,
-      onSelected: (_) => onSelected(slug),
-    );
+    Widget chip(String label, String? slug) {
+      final selected = !query.isSearching && selectedSlug == slug;
+      return ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        labelStyle: TextStyle(
+          color: selected ? colors.onPrimary : colors.onSurface,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+        ),
+        side: BorderSide(
+          color: selected ? colors.primary : colors.outlineVariant,
+        ),
+        onSelected: (_) => onSelected(slug),
+      );
+    }
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -381,32 +387,87 @@ class _ResultBar extends ConsumerWidget {
             ),
           ),
         ),
-        PopupMenuButton<ProductSort>(
-          tooltip: 'เรียงลำดับ',
-          initialValue: query.sort,
+        _SortMenu(
+          selected: query.sort,
           onSelected: ref.read(catalogQueryProvider.notifier).setSort,
-          itemBuilder: (context) => [
-            for (final sort in ProductSort.values)
-              CheckedPopupMenuItem(
-                value: sort,
-                checked: sort == query.sort,
-                child: Text(sort.label),
-              ),
-          ],
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.sort, size: 18),
-                const SizedBox(width: 4),
-                Text(query.sort.label, style: theme.textTheme.labelLarge),
-                const Icon(Icons.expand_more, size: 18),
-              ],
-            ),
-          ),
         ),
       ],
+    );
+  }
+}
+
+/// Compact dropdown anchored under the sort button. The current order is
+/// shown in bold with a check mark instead of a highlighted row.
+class _SortMenu extends StatelessWidget {
+  const _SortMenu({required this.selected, required this.onSelected});
+
+  final ProductSort selected;
+  final ValueChanged<ProductSort> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return PopupMenuButton<ProductSort>(
+      tooltip: 'เรียงลำดับ',
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, AppSpace.xs),
+      constraints: const BoxConstraints(minWidth: 208),
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        for (final sort in ProductSort.values)
+          PopupMenuItem(
+            value: sort,
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+            child: Semantics(
+              selected: sort == selected,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      sort.label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: sort == selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpace.md),
+                  // Reserve the space so labels do not shift.
+                  SizedBox.square(
+                    dimension: 18,
+                    child: sort == selected
+                        ? Icon(Icons.check, size: 18, color: colors.onSurface)
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Padding(
+          padding: const EdgeInsets.only(left: AppSpace.sm),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.swap_vert, size: 18, color: colors.onSurfaceVariant),
+              const SizedBox(width: AppSpace.xs),
+              Text(
+                selected.label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Icon(Icons.expand_more, size: 18),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -486,10 +547,7 @@ class _ListFooter extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              LinearProgressIndicator(
-                value: progress.toDouble(),
-                borderRadius: BorderRadius.circular(4),
-              ),
+              LinearProgressIndicator(value: progress.toDouble(), minHeight: 2),
               const SizedBox(height: 16),
               action,
             ],
