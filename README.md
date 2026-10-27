@@ -10,9 +10,13 @@ tablets. UI text and built-in Material/Cupertino controls use Thai; product data
 |---|---|---|---|
 | ![](docs/screenshots/mobile-list.png) | ![](docs/screenshots/mobile-search.png) | ![](docs/screenshots/mobile-detail.png) | ![](docs/screenshots/mobile-cart.png) |
 
-| Tablet portrait (4 columns) | Tablet landscape (navigation rail, two-pane detail) |
+| Tablet portrait (4 columns) | Tablet landscape (two-pane detail) |
 |---|---|
 | ![](docs/screenshots/tablet-list.png) | ![](docs/screenshots/tablet-detail.png) |
+
+Screenshots were captured on 27 October 2026 from the Android debug build
+of application source `699d463`. Live API products, prices, stock and totals
+may change.
 
 ## Design
 
@@ -193,9 +197,11 @@ Flow: **UI → Riverpod providers → ProductRepository → Dio → REST API**
   invented. Examples: no brand line, no stock label, "ไม่ระบุ" for a missing
   warranty, a placeholder image. Malformed reviews are skipped.
 - **Price**: the API's `price` is the list price. Sale price =
-  `price × (1 − discountPercentage / 100)`, rounded to cents. This matches
-  how DummyJSON's own carts compute `discountedTotal`. The discount badge
-  shows the rounded percent and is hidden below 1%.
+  `price × (1 − discountPercentage / 100)`, rounded to cents per unit.
+  The discount badge uses `discountPercentage.round()` and appears when
+  that integer is greater than zero: 0.6% displays as 1%, while a discount
+  that rounds to 0 has no badge. This unit-price calculation does not
+  guarantee equality with the API's aggregate `discountedTotal`.
 - The API can't combine search and category in one request. Choosing a
   category clears the search, and typing a search covers all categories.
 
@@ -244,19 +250,26 @@ alone did not catch this case; a test covers it.)
 
 | Available width | Behaviour |
 |---|---|
-| Any | 16 dp side padding, 12 dp gaps, cards ≥ 150 dp wide, 1–4 columns computed from the real width |
+| Any | 16 dp side padding, 12 dp gaps, 1–4 columns computed from the real width with a target minimum card width of 150 dp |
 | ≥ 840 dp | Navigation rail instead of the bottom bar; detail page shows gallery and info side by side |
 | > 1200 dp | Content centred and capped at 1200 dp |
 
-Card height is calculated from the current text scale, so titles (max 2
-lines), prices and stock labels are never clipped. The sale price always gets
-the space it needs; the struck-through list price only appears when it fits
-next to it. Widget tests check for overflow on the catalog, detail and cart
-screens at 360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
+Card height grows with the current text scale. Titles reserve two lines;
+titles, metadata, prices and stock labels use line limits and ellipsis where
+applicable. The struck-through list price appears only when it fits beside
+the sale price. Arbitrary text lengths, prices and text scales can still
+truncate content. Existing widget tests target overflow on the catalog,
+detail and cart screens at 360×800, 800×1280 and 1280×800 with text scale
+1.0 and 1.5.
 
 ## Testing
 
-`flutter test` runs 97 tests:
+An earlier full `flutter test` run passed all 97 tests, before the device
+persistence and latest UX changes. The exact tested commit was not recorded.
+The suite has not been rerun for the current application source (`699d463`).
+This documentation update does not claim a new full-suite result.
+
+The existing tests are intended to cover:
 
 - **Model**: every field, sale price and discount rounding, defaults for
   missing fields, out of stock, image URL filtering, skipping malformed
@@ -291,15 +304,22 @@ screens at 360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
     out of stock; detail Retry; "not found" with Back;
   - the overflow matrix above.
 
-### Tested on
+### Verification record
 
-- **Android emulator** (Pixel 8, Android 16 / API 36) with the **release APK**
-  against the live API. Checked: catalog, search "phone", product detail, add
-  to cart, wishlist heart, and cart totals. Tablet sizes 800×1280 dp and
-  1280×800 dp were set with `adb shell wm size/density`.
+- **Current source (`699d463`)**: `flutter analyze` and the Android debug x64
+  build passed. Screens were manually inspected with the debug build on an
+  Android 16 / API 36 emulator, including phone and tablet layouts.
+- **Historical release check**: earlier project notes record a release-APK
+  check against the live API on a Pixel 8 emulator (Android 16 / API 36):
+  catalog, search "phone", product detail, add to cart, wishlist heart and
+  cart totals.
+  Tablet sizes 800×1280 dp and 1280×800 dp were set with
+  `adb shell wm size/density`. The checked commit and date were not recorded;
+  this is not verification of the current release APK.
 - **Not tested**: iOS (no macOS/Xcode available), physical devices, and
-  switching the network off on the emulator mid-request (covered by unit and
-  widget tests with simulated failures).
+  switching the network off on the emulator mid-request. Existing unit and
+  widget tests simulate network failures; they have not been rerun for the
+  current source.
 
 ## Assumptions and limitations
 
