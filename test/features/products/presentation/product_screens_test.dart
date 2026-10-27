@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:product_catalog/app.dart';
@@ -367,7 +368,7 @@ void main() {
       expect(request.query.categorySlug, 'laptops');
       request.succeed(products(1, 2));
       await tester.pumpAndSettle();
-      expect(find.text('ราคาปกติต่ำไปสูง'), findsOneWidget);
+      expect(find.text('ราคาปกติ ↑'), findsOneWidget);
     });
 
     testWidgets('picking a category tab filters the catalog', (tester) async {
@@ -599,6 +600,14 @@ void main() {
                 ProductCategory(slug: name.toLowerCase(), name: name),
             ]);
             await tester.pumpAndSettle();
+            // The open menu must also fit narrow screens and enlarged text.
+            await tester.tap(find.byTooltip('เรียงลำดับ'));
+            await tester.pumpAndSettle();
+            expect(find.text('เรียงลำดับสินค้า'), findsOneWidget);
+            expect(tester.takeException(), isNull);
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+            await tester.pumpAndSettle();
+            expect(find.text('เรียงลำดับสินค้า'), findsNothing);
             await scrollTo(tester, find.text('โหลดเพิ่มเติม'));
 
             await tester.tap(find.byTooltip('ใส่ตะกร้า').hitTestable().first);

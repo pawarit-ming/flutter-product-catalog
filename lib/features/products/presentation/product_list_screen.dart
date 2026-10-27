@@ -22,6 +22,22 @@ extension ProductSortLabel on ProductSort {
     ProductSort.ratingHighToLow => 'คะแนนรีวิวสูงสุด',
     ProductSort.titleAToZ => 'ชื่อสินค้า A–Z',
   };
+
+  String get compactLabel => switch (this) {
+    ProductSort.recommended => 'แนะนำ',
+    ProductSort.priceLowToHigh => 'ราคาปกติ ↑',
+    ProductSort.priceHighToLow => 'ราคาปกติ ↓',
+    ProductSort.ratingHighToLow => 'คะแนนสูงสุด',
+    ProductSort.titleAToZ => 'ชื่อ A–Z',
+  };
+
+  IconData get icon => switch (this) {
+    ProductSort.recommended => Icons.tune_rounded,
+    ProductSort.priceLowToHigh => Icons.arrow_upward_rounded,
+    ProductSort.priceHighToLow => Icons.arrow_downward_rounded,
+    ProductSort.ratingHighToLow => Icons.star_outline_rounded,
+    ProductSort.titleAToZ => Icons.sort_by_alpha_rounded,
+  };
 }
 
 /// Catalog tab: search, category chips, sort, and the paginated grid.
@@ -390,8 +406,8 @@ class _ResultBar extends ConsumerWidget {
   }
 }
 
-/// Compact dropdown anchored under the sort button. The current order is
-/// shown in bold with a check mark instead of a highlighted row.
+/// An outlined sort control with a readable, right-anchored options menu.
+/// The popup is wider than the compact trigger to fit full Thai labels.
 class _SortMenu extends StatelessWidget {
   const _SortMenu({required this.selected, required this.onSelected});
 
@@ -406,59 +422,126 @@ class _SortMenu extends StatelessWidget {
       tooltip: 'เรียงลำดับ',
       position: PopupMenuPosition.under,
       offset: const Offset(0, AppSpace.xs),
-      constraints: const BoxConstraints(minWidth: 208),
+      menuPadding: const EdgeInsets.all(AppSpace.xs),
+      constraints: BoxConstraints.tightFor(
+        width: math.min(
+          280,
+          MediaQuery.sizeOf(context).width - AppSpace.lg * 2,
+        ),
+      ),
       onSelected: onSelected,
       itemBuilder: (context) => [
+        PopupMenuItem<ProductSort>(
+          enabled: false,
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+          child: Text(
+            'เรียงลำดับสินค้า',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
         for (final sort in ProductSort.values)
           PopupMenuItem(
             value: sort,
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+            height: 0,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.xs,
+              vertical: 2,
+            ),
             child: Semantics(
               selected: sort == selected,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      sort.label,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurface,
-                        fontWeight: sort == selected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpace.md,
+                  vertical: AppSpace.md,
+                ),
+                decoration: BoxDecoration(
+                  color: sort == selected ? colors.secondaryContainer : null,
+                  borderRadius: BorderRadius.circular(AppRadius.thumb),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      sort.icon,
+                      size: 20,
+                      color: sort == selected
+                          ? colors.onSurface
+                          : colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: AppSpace.md),
+                    Expanded(
+                      child: Text(
+                        sort.label,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.4,
+                          color: colors.onSurface,
+                          fontWeight: sort == selected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: AppSpace.md),
-                  // Reserve the space so labels do not shift.
-                  SizedBox.square(
-                    dimension: 18,
-                    child: sort == selected
-                        ? Icon(Icons.check, size: 18, color: colors.onSurface)
-                        : null,
-                  ),
-                ],
+                    const SizedBox(width: AppSpace.sm),
+                    SizedBox.square(
+                      dimension: 20,
+                      child: sort == selected
+                          ? Icon(
+                              Icons.check_rounded,
+                              size: 20,
+                              color: colors.onSurface,
+                            )
+                          : null,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
       ],
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
+      child: Semantics(
+        label: 'เรียงลำดับ: ${selected.label}',
+        excludeSemantics: true,
+        // Keep a 48 dp tap target around the smaller visible control.
         child: Padding(
-          padding: const EdgeInsets.only(left: AppSpace.sm),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.swap_vert, size: 18, color: colors.onSurfaceVariant),
-              const SizedBox(width: AppSpace.xs),
-              Text(
-                selected.label,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
+          padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 32),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.sm,
+              vertical: AppSpace.xs,
+            ),
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLowest,
+              border: Border.all(color: colors.outlineVariant),
+              borderRadius: BorderRadius.circular(AppRadius.thumb),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.sort_rounded,
+                  size: 16,
+                  color: colors.onSurfaceVariant,
                 ),
-              ),
-              const Icon(Icons.expand_more, size: 18),
-            ],
+                const SizedBox(width: AppSpace.xs),
+                Text(
+                  selected.compactLabel,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: AppSpace.xs),
+                Icon(
+                  Icons.expand_more,
+                  size: 16,
+                  color: colors.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),
