@@ -9,9 +9,9 @@ names and the API's shipping, warranty and return-policy phrases are
 translated to Thai; product titles, descriptions, brands and reviews are shown
 as the API returns them.
 
-| Catalog | Search | Categories | Product detail | Cart |
-|---|---|---|---|---|
-| ![](docs/screenshots/mobile-list.png) | ![](docs/screenshots/mobile-search.png) | ![](docs/screenshots/mobile-categories.png) | ![](docs/screenshots/mobile-detail.png) | ![](docs/screenshots/mobile-cart.png) |
+**Phone** — catalog · search · categories · product detail · cart
+
+![Phone screens: catalog, search, categories, product detail and cart](docs/screenshots/overview-phone.png)
 
 | Tablet portrait (4 columns) | Tablet landscape (two-pane detail) |
 |---|---|
@@ -20,7 +20,9 @@ as the API returns them.
 Screenshots were captured on 27 October 2026 from the Android debug build
 of application source `00da610` on an Android 17 (API 37) emulator. Tablet
 sizes (800×1280 dp and 1280×800 dp) were set with `adb shell wm size/density`.
-Live API products, prices, stock and totals may change.
+The phone row is one image with every screenshot scaled to the same height
+(the individual screenshots are in `docs/screenshots/`). Live API products,
+prices, stock and totals may change.
 
 ## Design
 
