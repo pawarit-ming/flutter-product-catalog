@@ -18,23 +18,27 @@ class ProductCard extends ConsumerWidget {
   static const _titleGap = AppSpace.sm;
   static const _priceGap = 2.0;
   static const _buttonSize = 48.0;
+  static const _dividerHeight = 1.0;
+  static const _titleLines = 2;
 
   /// Height of a card [width] wide: a square image plus the text rows at the
   /// current text scale, so nothing is clipped when fonts are enlarged.
   static double heightFor(double width, TextScaler textScaler) {
     double line(double fontSize) =>
         textScaler.scale(fontSize) * ProductTextStyles.lineHeight;
-    final priceAndStock =
-        line(ProductTextStyles.priceFontSize) +
-        _priceGap +
-        line(ProductTextStyles.metaFontSize + 1);
     return width +
+        _dividerHeight +
         padding * 2 +
         line(ProductTextStyles.metaFontSize) +
         _metaGap +
-        line(ProductTextStyles.titleFontSize) * 2 +
+        line(ProductTextStyles.titleFontSize) * _titleLines +
         _titleGap +
-        math.max(priceAndStock, _buttonSize) +
+        line(ProductTextStyles.priceFontSize) +
+        _priceGap +
+        math.max(
+          line(ProductTextStyles.stockFontSize) * StockLabel.compactMaxLines,
+          _buttonSize,
+        ) +
         // A few pixels of slack absorb font metric rounding.
         4;
   }
@@ -47,9 +51,20 @@ class ProductCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final rating = product.rating;
+    final textScaler = MediaQuery.textScalerOf(context);
     final metaLine =
-        MediaQuery.textScalerOf(context).scale(ProductTextStyles.metaFontSize) *
+        textScaler.scale(ProductTextStyles.metaFontSize) *
         ProductTextStyles.lineHeight;
+    final titleHeight =
+        textScaler.scale(ProductTextStyles.titleFontSize) *
+        ProductTextStyles.lineHeight *
+        _titleLines;
+    final footerHeight = math.max(
+      textScaler.scale(ProductTextStyles.stockFontSize) *
+          ProductTextStyles.lineHeight *
+          StockLabel.compactMaxLines,
+      _buttonSize,
+    );
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -81,7 +96,7 @@ class ProductCard extends ConsumerWidget {
                 ],
               ),
             ),
-            const Divider(),
+            const Divider(height: _dividerHeight),
             Padding(
               padding: const EdgeInsets.all(padding),
               child: Column(
@@ -100,61 +115,71 @@ class ProductCard extends ConsumerWidget {
                               fontSize: ProductTextStyles.metaFontSize,
                               height: ProductTextStyles.lineHeight,
                               color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
-                        if (rating != null)
+                        if (rating != null) ...[
+                          const SizedBox(width: AppSpace.xs),
                           RatingLabel(
                             rating: rating,
                             fontSize: ProductTextStyles.metaFontSize,
                           ),
+                        ],
                       ],
                     ),
                   ),
                   const SizedBox(height: _metaGap),
-                  Text(
-                    product.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontSize: ProductTextStyles.titleFontSize,
-                      height: ProductTextStyles.lineHeight,
+                  SizedBox(
+                    height: titleHeight,
+                    child: Text(
+                      product.title,
+                      maxLines: _titleLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontSize: ProductTextStyles.titleFontSize,
+                        height: ProductTextStyles.lineHeight,
+                        fontWeight: FontWeight.w600,
+                        color: colors.onSurface,
+                      ),
                     ),
                   ),
                   const SizedBox(height: _titleGap),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            PriceRow(product: product),
-                            const SizedBox(height: _priceGap),
-                            StockLabel(
-                              stock: product.stock,
-                              fontSize: ProductTextStyles.metaFontSize + 1,
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton.filled(
-                        tooltip: 'ใส่ตะกร้า',
-                        style: IconButton.styleFrom(
-                          fixedSize: const Size.square(40),
-                          minimumSize: const Size.square(40),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.control,
-                            ),
+                  PriceRow(product: product),
+                  const SizedBox(height: _priceGap),
+                  SizedBox(
+                    height: footerHeight,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: StockLabel(
+                            stock: product.stock,
+                            fontSize: ProductTextStyles.stockFontSize,
+                            compact: true,
                           ),
                         ),
-                        iconSize: 20,
-                        onPressed: product.isOutOfStock
-                            ? null
-                            : () => addToCart(context, ref, product),
-                        icon: const Icon(Icons.add_shopping_cart_outlined),
-                      ),
-                    ],
+                        IconButton.filled(
+                          tooltip: 'ใส่ตะกร้า',
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size.square(40),
+                            minimumSize: const Size.square(40),
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                            visualDensity: VisualDensity.standard,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.control,
+                              ),
+                            ),
+                          ),
+                          iconSize: 20,
+                          onPressed: product.isOutOfStock
+                              ? null
+                              : () => addToCart(context, ref, product),
+                          icon: const Icon(Icons.add_shopping_cart_outlined),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

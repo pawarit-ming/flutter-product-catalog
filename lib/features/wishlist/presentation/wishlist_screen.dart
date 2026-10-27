@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../home/application/home_tab_provider.dart';
 import '../../products/presentation/widgets/error_view.dart';
 import '../../products/presentation/widgets/product_grid.dart';
 import '../application/wishlist_provider.dart';
@@ -14,10 +15,24 @@ class WishlistScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('รายการโปรด')),
       body: products.isEmpty
-          ? const MessageView(
-              icon: Icons.favorite_border,
-              title: 'ยังไม่มีรายการโปรด',
-              message: 'กดรูปหัวใจบนสินค้าเพื่อบันทึกไว้ที่นี่',
+          ? CustomScrollView(
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: MessageView(
+                    icon: Icons.favorite_border,
+                    title: 'ยังไม่มีรายการโปรด',
+                    message: 'กดรูปหัวใจบนสินค้าเพื่อบันทึกไว้ที่นี่',
+                    action: FilledButton.icon(
+                      onPressed: () => ref
+                          .read(homeTabProvider.notifier)
+                          .select(HomeTab.catalog),
+                      icon: const Icon(Icons.storefront_outlined, size: 20),
+                      label: const Text('เลือกดูสินค้า'),
+                    ),
+                  ),
+                ),
+              ],
             )
           : CustomScrollView(
               slivers: [

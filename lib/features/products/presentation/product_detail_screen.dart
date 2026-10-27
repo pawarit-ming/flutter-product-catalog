@@ -682,7 +682,7 @@ class _ReviewsTab extends StatelessWidget {
   }
 }
 
-/// Bottom bar with "Add to cart" and "Add and view cart".
+/// Adding is the primary action; viewing the cart never changes its contents.
 class _PurchaseBar extends ConsumerWidget {
   const _PurchaseBar({required this.product, required this.quantity});
 
@@ -696,46 +696,34 @@ class _PurchaseBar extends ConsumerWidget {
       minimumSize: WidgetStateProperty.all(const Size(0, 52)),
     );
 
-    final Widget buttons;
-    if (product.isOutOfStock) {
-      buttons = FilledButton(
-        onPressed: null,
-        style: buttonStyle,
-        child: const Text('สินค้าหมด'),
-      );
-    } else {
-      buttons = Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              style: buttonStyle,
-              onPressed: () =>
-                  addToCart(context, ref, product, quantity: quantity),
-              icon: const Icon(Icons.add_shopping_cart_outlined, size: 20),
-              label: const Text('ใส่ตะกร้า'),
+    final buttons = Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            style: buttonStyle,
+            onPressed: product.isOutOfStock
+                ? null
+                : () => addToCart(context, ref, product, quantity: quantity),
+            icon: Icon(
+              product.isOutOfStock
+                  ? Icons.remove_shopping_cart_outlined
+                  : Icons.add_shopping_cart_outlined,
+              size: 20,
             ),
+            label: Text(product.isOutOfStock ? 'สินค้าหมด' : 'ใส่ตะกร้า'),
           ),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            child: FilledButton(
-              style: buttonStyle,
-              onPressed: () {
-                final result = ref
-                    .read(cartProvider.notifier)
-                    .add(product, quantity: quantity);
-                if (result != AddToCartResult.outOfStock) {
-                  showCart(context, ref);
-                }
-              },
-              child: const Text(
-                'เพิ่มและดูตะกร้า',
-                textAlign: TextAlign.center,
-              ),
-            ),
+        ),
+        const SizedBox(width: AppSpace.md),
+        Expanded(
+          child: OutlinedButton.icon(
+            style: buttonStyle,
+            onPressed: () => showCart(context, ref),
+            icon: const Icon(Icons.shopping_bag_outlined, size: 20),
+            label: const Text('ดูตะกร้า', textAlign: TextAlign.center),
           ),
-        ],
-      );
-    }
+        ),
+      ],
+    );
 
     return DecoratedBox(
       decoration: BoxDecoration(

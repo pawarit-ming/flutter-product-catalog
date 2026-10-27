@@ -116,7 +116,7 @@ void main() {
       expect(find.text('Product 2'), findsOneWidget);
       expect(find.text(r'$9.50'), findsOneWidget);
       expect(find.text('แสดง 2 จาก 2 รายการ'), findsOneWidget);
-      expect(find.text('มีสินค้า 50 ชิ้น'), findsNWidgets(2));
+      expect(find.text('มีสินค้า'), findsNWidgets(2));
       await scrollTo(tester, find.text('แสดงครบทุกรายการแล้ว'));
     });
 
@@ -496,12 +496,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('ลงตะกร้าแล้ว'), findsOneWidget);
 
-      // Only 1 left in stock, so adding and viewing the cart caps it at 3.
-      await tester.tap(find.text('เพิ่มและดูตะกร้า'));
+      // Viewing the cart must not add the selected quantity a second time.
+      await tester.tap(
+        find.descendant(
+          of: find.byWidgetPredicate((widget) => widget is OutlinedButton),
+          matching: find.text('ดูตะกร้า'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('ตะกร้าสินค้า'), findsOneWidget);
-      expect(find.text('ยอดรวม · 3 ชิ้น'), findsOneWidget);
+      expect(find.text('ยอดรวม · 2 ชิ้น'), findsOneWidget);
     });
 
     testWidgets('out of stock disables buying', (tester) async {
@@ -512,10 +517,13 @@ void main() {
       await tester.pumpAndSettle();
 
       final button = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'สินค้าหมด'),
+        find.byWidgetPredicate(
+          (widget) => widget is FilledButton && widget.onPressed == null,
+        ),
       );
       expect(button.onPressed, isNull);
-      expect(find.text('เพิ่มและดูตะกร้า'), findsNothing);
+      expect(find.text('สินค้าหมด'), findsOneWidget);
+      expect(find.text('ดูตะกร้า'), findsOneWidget);
     });
 
     testWidgets('error retries only that product', (tester) async {
@@ -643,7 +651,7 @@ void main() {
             await tester.pumpAndSettle();
 
             // The cart screen with a long line item.
-            await tester.tap(find.text('เพิ่มและดูตะกร้า'));
+            await tester.tap(find.text('ดูตะกร้า'));
             await tester.pumpAndSettle();
             expect(find.text('ตะกร้าสินค้า'), findsOneWidget);
 

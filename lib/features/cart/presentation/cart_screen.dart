@@ -9,6 +9,7 @@ import '../../products/presentation/widgets/error_view.dart';
 import '../../products/presentation/widgets/product_image.dart';
 import '../../products/presentation/widgets/product_labels.dart';
 import '../application/cart_provider.dart';
+import 'cart_feedback.dart';
 import 'quantity_stepper.dart';
 
 const _maxCartWidth = 720.0;
@@ -140,6 +141,43 @@ class _CartLine extends ConsumerWidget {
 
   final CartItem item;
 
+  void _remove(BuildContext context, WidgetRef ref) {
+    // Capture root-owned objects: this line's WidgetRef is disposed on remove.
+    final cart = ref.read(cartProvider.notifier);
+    final messenger = ScaffoldMessenger.of(context);
+    final accessibleNavigation = MediaQuery.accessibleNavigationOf(context);
+    final removal = cart.removeWithUndo(item.product.id);
+    if (removal == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          padding: cartFeedbackPadding,
+          content: CartFeedbackContent(
+            product: item.product,
+            headline: 'นำออกจากตะกร้าแล้ว',
+          ),
+          duration: const Duration(seconds: 5),
+          persist: accessibleNavigation,
+          action: cartFeedbackAction(
+            context,
+            label: 'เลิกทำ',
+            onPressed: () {
+              if (!cart.undoRemoval(removal) && messenger.mounted) {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'ตะกร้ามีการเปลี่ยนแปลงแล้ว จึงคงรายการปัจจุบันไว้',
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final product = item.product;
@@ -185,12 +223,12 @@ class _CartLine extends ConsumerWidget {
                         ),
                       ),
                       SizedBox.square(
-                        dimension: 32,
+                        dimension: 48,
                         child: IconButton(
                           tooltip: 'นำออกจากตะกร้า',
                           padding: EdgeInsets.zero,
                           iconSize: 18,
-                          onPressed: () => cart.remove(product.id),
+                          onPressed: () => _remove(context, ref),
                           icon: Icon(
                             Icons.close,
                             color: colors.onSurfaceVariant,

@@ -66,10 +66,19 @@ Material demo. It is defined once in `lib/core/theme/app_theme.dart`:
 - **Product detail**: swipeable gallery with thumbnails and page counter;
   brand, category, SKU, rating with review count, and warranty; savings;
   stock and shipping; quantity picker; tabs for details/specs,
-  shipping & returns, and reviews; "Add to cart" and "เพิ่มและดูตะกร้า"
+  shipping & returns, and reviews; primary "ใส่ตะกร้า" and secondary
+  "ดูตะกร้า" (viewing the cart never adds more units)
 - **Wishlist** and **cart** saved locally: quantity is limited by stock,
   totals use the discounted price, and the cart count shows as a badge on
   the tab
+- **Cart recovery**: removing a line shows "เลิกทำ" and restores its saved
+  quantity and position. A later removal, clearing the cart, or re-adding the
+  same product prevents an older Undo from overwriting the current cart.
+- **Readable cards**: two reserved title lines, 12/15/18 dp metadata/title/price
+  scale, full-width prices and a compact stock/actions row. Normal stock reads
+  "มีสินค้า" on cards; low stock and the detail page retain exact quantities.
+  Cart remove/quantity controls keep 48 dp touch targets with compact visuals.
+  An empty wishlist includes "เลือกดูสินค้า" to return to the catalog.
 
 ## Versions
 
@@ -302,7 +311,7 @@ screens at 360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
   Saved products are snapshots: prices and stock can differ from later API
   responses. Preferences store convenience data, not orders or payment
   records; uninstalling the app or clearing its data removes them. There is
-  **no checkout**; the detail button explicitly adds and opens the cart.
+  **no checkout**; the detail page separates adding items from viewing the cart.
 - The mockup's colour variants, installment and "100% genuine" badges, and
   Profile tab are not built: the API has no data for them and there is no
   login.

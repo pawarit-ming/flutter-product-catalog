@@ -85,12 +85,21 @@ class RatingLabel extends StatelessWidget {
 /// products is not covered in green. Renders an empty line of the same
 /// height when the API does not report stock, so card heights stay stable.
 class StockLabel extends StatelessWidget {
-  const StockLabel({super.key, required this.stock, this.fontSize = 12});
+  const StockLabel({
+    super.key,
+    required this.stock,
+    this.fontSize = 12,
+    this.compact = false,
+  });
 
   static const lowStockThreshold = 5;
+  static const compactMaxLines = 2;
 
   final int? stock;
   final double fontSize;
+
+  /// Cards show availability at a glance; detail views retain exact counts.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -110,11 +119,18 @@ class StockLabel extends StatelessWidget {
         catalog.lowStock,
         true,
       ),
-      _ => ('มีสินค้า $stock ชิ้น', catalog.inStock, false),
+      _ => (
+        compact ? 'มีสินค้า' : 'มีสินค้า $stock ชิ้น',
+        catalog.inStock,
+        false,
+      ),
     };
     return Text(
       text,
-      maxLines: 1,
+      semanticsLabel: compact && stock > lowStockThreshold
+          ? 'มีสินค้า $stock ชิ้น'
+          : null,
+      maxLines: compact ? compactMaxLines : 1,
       overflow: TextOverflow.ellipsis,
       style: style?.copyWith(
         color: color,
@@ -214,7 +230,8 @@ class PriceRow extends StatelessWidget {
 /// Font sizes shared by the card and its height calculation.
 abstract final class ProductTextStyles {
   static const lineHeight = 1.3;
-  static const metaFontSize = 11.0;
-  static const titleFontSize = 14.0;
-  static const priceFontSize = 16.0;
+  static const metaFontSize = 12.0;
+  static const titleFontSize = 15.0;
+  static const priceFontSize = 18.0;
+  static const stockFontSize = 12.0;
 }

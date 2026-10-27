@@ -20,6 +20,15 @@ class CartItem {
       product.stock ?? maxQuantityWithoutStock;
 }
 
+/// A removal can be undone once, until a newer removal or clear supersedes it.
+class CartRemoval {
+  const CartRemoval._(this.item, this.index, this._revision);
+
+  final CartItem item;
+  final int index;
+  final int _revision;
+}
+
 /// Result of adding to the cart, so the UI can explain what happened.
 enum AddToCartResult { added, limitedByStock, outOfStock }
 
@@ -53,6 +62,8 @@ final cartTotalsProvider = Provider<CartTotals>((ref) {
 });
 
 class CartNotifier extends Notifier<List<CartItem>> {
+  int _removalRevision = 0;
+
   @override
   List<CartItem> build() {
     final storage = ref.watch(shoppingStorageProvider);
@@ -120,13 +131,44 @@ class CartNotifier extends Notifier<List<CartItem>> {
   }
 
   void remove(int productId) {
+    _removalRevision++;
     _commit([
       for (final item in state)
         if (item.product.id != productId) item,
     ]);
   }
 
-  void clear() => _commit(const []);
+  CartRemoval? removeWithUndo(int productId) {
+    final index = state.indexWhere((item) => item.product.id == productId);
+    if (index < 0) return null;
+    final item = state[index];
+    remove(productId);
+    return CartRemoval._(item, index, _removalRevision);
+  }
+
+  /// Preserve later edits and re-added products instead of replacing them
+  /// with an older snapshot. Clearing the cart also invalidates pending Undo.
+  bool undoRemoval(CartRemoval removal) {
+    if (removal._revision != _removalRevision) return false;
+    _removalRevision++;
+    final product = removal.item.product;
+    if (_find(product.id) != null) return false;
+    final max = CartItem.maxQuantityFor(product);
+    if (max <= 0) return false;
+    final restored = CartItem(
+      product: product,
+      quantity: removal.item.quantity.clamp(1, max),
+    );
+    final items = [...state];
+    items.insert(removal.index.clamp(0, items.length), restored);
+    _commit(items);
+    return true;
+  }
+
+  void clear() {
+    _removalRevision++;
+    _commit(const []);
+  }
 
   int quantityOf(int productId) => _find(productId)?.quantity ?? 0;
 
