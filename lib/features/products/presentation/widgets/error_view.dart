@@ -5,9 +5,10 @@ class ErrorView extends StatelessWidget {
   const ErrorView({
     super.key,
     required this.message,
-    this.title = 'Something went wrong',
+    this.title = 'เกิดข้อผิดพลาด',
     this.icon = Icons.cloud_off_outlined,
-    this.actionLabel = 'Retry',
+    this.actionLabel = 'ลองอีกครั้ง',
+    this.actionIcon = Icons.refresh,
     this.onAction,
   });
 
@@ -15,6 +16,7 @@ class ErrorView extends StatelessWidget {
   final String message;
   final IconData icon;
   final String actionLabel;
+  final IconData actionIcon;
   final VoidCallback? onAction;
 
   @override
@@ -27,7 +29,7 @@ class ErrorView extends StatelessWidget {
           ? null
           : FilledButton.icon(
               onPressed: onAction,
-              icon: const Icon(Icons.refresh),
+              icon: Icon(actionIcon),
               label: Text(actionLabel),
             ),
     );

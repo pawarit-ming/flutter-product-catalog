@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:product_catalog/core/errors/app_exception.dart';
 import 'package:product_catalog/core/riverpod/no_retry.dart';
+import 'package:product_catalog/features/products/application/catalog_query_provider.dart';
 import 'package:product_catalog/features/products/application/product_list_notifier.dart';
 import 'package:product_catalog/features/products/application/product_list_state.dart';
+import 'package:product_catalog/features/products/data/catalog_query.dart';
 import 'package:product_catalog/features/products/data/product_repository.dart';
 
 import '../../../helpers/fake_product_repository.dart';
@@ -311,5 +313,94 @@ void main() {
         expect(state().items, hasLength(40));
       },
     );
+  });
+
+  group('total and catalog query', () {
+    test('stops when the cursor reaches the reported total', () async {
+      final future = container.read(productListProvider.future);
+      repository.listRequests.single.succeed(products(1, 20), total: 20);
+      await future;
+
+      expect(state().total, 20);
+      expect(state().hasMore, isFalse);
+      await notifier().loadMore();
+      expect(repository.listRequests, hasLength(1));
+    });
+
+    test('a new search reloads from offset 0 with that query', () async {
+      await loadFirstPage();
+
+      container.read(catalogQueryProvider.notifier).setSearch(' phone ');
+      final reloading = container.read(productListProvider.future);
+      expect(container.read(productListProvider).isLoading, isTrue);
+
+      final request = repository.listRequests.last;
+      expect(request.offset, 0);
+      expect(request.query.search, 'phone');
+      request.succeed(products(101, 103));
+      await reloading;
+
+      expect(ids(), [101, 102, 103]);
+    });
+
+    test('load more and refresh keep using the current query', () async {
+      container.read(catalogQueryProvider.notifier).setCategory('smartphones');
+      // setUp already started a load for the default query; use the new one.
+      final first = container.read(productListProvider.future);
+      repository.listRequests.last.succeed(products(1, 20));
+      await first;
+
+      final loading = notifier().loadMore();
+      expect(repository.listRequests.last.query.categorySlug, 'smartphones');
+      repository.listRequests.last.succeed(products(21, 25));
+      await loading;
+
+      final refreshing = notifier().refresh();
+      expect(repository.listRequests.last.query.categorySlug, 'smartphones');
+      repository.listRequests.last.succeed(products(1, 5));
+      await refreshing;
+    });
+
+    test('changing the query cancels an in-flight load more', () async {
+      await loadFirstPage();
+
+      final loading = notifier().loadMore();
+      final stale = repository.listRequests.last;
+      container
+          .read(catalogQueryProvider.notifier)
+          .setSort(ProductSort.priceLowToHigh);
+      final reloading = container.read(productListProvider.future);
+
+      expect(stale.isCancelled, isTrue);
+      // Ignored while the new query is loading.
+      await notifier().loadMore();
+      expect(repository.listRequests, hasLength(3));
+
+      stale.succeed(products(21, 40));
+      await loading;
+      repository.listRequests.last.succeed(products(201, 205));
+      await reloading;
+
+      expect(ids(), [201, 202, 203, 204, 205]);
+      expect(
+        repository.listRequests.last.query.sort,
+        ProductSort.priceLowToHigh,
+      );
+    });
+
+    test('a failed reload is an error even though old items exist', () async {
+      await loadFirstPage();
+
+      container.read(catalogQueryProvider.notifier).setSearch('x');
+      final reloading = container.read(productListProvider.future);
+      repository.listRequests.last.fail(AppErrorType.network);
+      await expectLater(reloading, throwsA(isA<AppException>()));
+
+      expect(container.read(productListProvider).hasError, isTrue);
+      // Refresh and load more do not act on the previous query's items.
+      await notifier().refresh();
+      await notifier().loadMore();
+      expect(repository.listRequests, hasLength(2));
+    });
   });
 }

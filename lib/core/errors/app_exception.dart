@@ -26,16 +26,14 @@ class AppException implements Exception {
   bool get isCancelled => type == AppErrorType.cancelled;
 
   String get message => switch (type) {
-    AppErrorType.timeout => 'The request timed out. Please try again.',
+    AppErrorType.timeout => 'หมดเวลาการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง',
     AppErrorType.network =>
-      'Unable to connect. Check your internet connection and try again.',
-    AppErrorType.notFound => 'Product not found',
-    AppErrorType.server =>
-      'The server could not complete the request. Please try again later.',
-    AppErrorType.invalidData =>
-      'We received unexpected data from the server. Please try again later.',
-    AppErrorType.cancelled => 'The request was cancelled.',
-    AppErrorType.unknown => 'Something went wrong. Please try again.',
+      'เชื่อมต่ออินเทอร์เน็ตไม่ได้ ตรวจสอบการเชื่อมต่อแล้วลองใหม่',
+    AppErrorType.notFound => 'ไม่พบสินค้า',
+    AppErrorType.server => 'เซิร์ฟเวอร์ขัดข้อง กรุณาลองใหม่ภายหลัง',
+    AppErrorType.invalidData => 'ได้รับข้อมูลที่ไม่ถูกต้องจากเซิร์ฟเวอร์',
+    AppErrorType.cancelled => 'ยกเลิกคำขอแล้ว',
+    AppErrorType.unknown => 'เกิดข้อผิดพลาด กรุณาลองใหม่',
   };
 
   @override

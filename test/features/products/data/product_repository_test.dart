@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:product_catalog/core/errors/app_exception.dart';
+import 'package:product_catalog/features/products/data/catalog_query.dart';
 import 'package:product_catalog/features/products/data/product_repository.dart';
 
 import '../../../helpers/fixtures.dart';
@@ -38,13 +39,21 @@ ResponseBody json(Object? data, [int status = 200]) => ResponseBody.fromString(
   },
 );
 
+Map<String, Object?> page(List<int> ids, {required int total, int skip = 0}) =>
+    {
+      'products': [for (final id in ids) productJson(id)],
+      'total': total,
+      'skip': skip,
+      'limit': ids.length,
+    };
+
 void main() {
   late FakeAdapter adapter;
   late DioProductRepository repository;
 
   void respond(ResponseBody Function(RequestOptions options) handler) {
     adapter = FakeAdapter(handler);
-    final dio = Dio(BaseOptions(baseUrl: 'https://api.test/v1'))
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.test'))
       ..httpClientAdapter = adapter;
     repository = DioProductRepository(dio);
   }
@@ -52,83 +61,126 @@ void main() {
   Matcher throwsAppError(AppErrorType type) =>
       throwsA(isA<AppException>().having((e) => e.type, 'type', type));
 
-  group('getProducts', () {
-    test('sends offset and limit, and builds the next cursor', () async {
-      respond((_) => json([productJson(21), productJson(22)]));
+  Future<void> list({
+    CatalogQuery query = const CatalogQuery(),
+    int offset = 0,
+    int limit = 20,
+  }) => repository.getProducts(query: query, offset: offset, limit: limit);
 
-      final page = await repository.getProducts(offset: 20, limit: 2);
+  group('getProducts', () {
+    test('sends limit and skip, and builds the cursor from total', () async {
+      respond((_) => json(page([21, 22], total: 30, skip: 20)));
+
+      final result = await repository.getProducts(
+        query: const CatalogQuery(),
+        offset: 20,
+        limit: 2,
+      );
 
       final uri = adapter.requests.single.uri;
-      expect(uri.path, '/v1/products');
-      expect(uri.queryParameters, {'offset': '20', 'limit': '2'});
-      expect(page.items.map((p) => p.id), [21, 22]);
-      expect(page.nextOffset, 22);
-      expect(page.hasMore, isTrue);
+      expect(uri.path, '/products');
+      expect(uri.queryParameters, {'limit': '2', 'skip': '20'});
+      expect(result.items.map((p) => p.id), [21, 22]);
+      expect(result.nextOffset, 22);
+      expect(result.total, 30);
+      expect(result.hasMore, isTrue);
     });
 
-    test('reports no more pages when fewer than limit are returned', () async {
-      respond((_) => json([productJson(1)]));
+    test('stops when the cursor reaches total', () async {
+      respond((_) => json(page([29, 30], total: 30, skip: 28)));
 
-      final page = await repository.getProducts(offset: 0, limit: 20);
-
-      expect(page.nextOffset, 1);
-      expect(page.hasMore, isFalse);
-    });
-
-    test('an empty page ends pagination', () async {
-      respond((_) => json([]));
-
-      final page = await repository.getProducts(offset: 40, limit: 20);
-
-      expect(page.items, isEmpty);
-      expect(page.nextOffset, 40);
-      expect(page.hasMore, isFalse);
-    });
-
-    test('cursor counts raw items, including duplicate IDs', () async {
-      respond((_) => json([productJson(1), productJson(1)]));
-
-      final page = await repository.getProducts(offset: 0, limit: 2);
-
-      expect(page.nextOffset, 2);
-      expect(page.hasMore, isTrue);
-    });
-
-    test('rejects a response that is not a list', () {
-      respond((_) => json({'items': []}));
-      expect(
-        repository.getProducts(offset: 0, limit: 20),
-        throwsAppError(AppErrorType.invalidData),
+      final result = await repository.getProducts(
+        query: const CatalogQuery(),
+        offset: 28,
+        limit: 2,
       );
+
+      expect(result.nextOffset, 30);
+      expect(result.hasMore, isFalse);
+    });
+
+    test(
+      'an empty page ends pagination even if total says otherwise',
+      () async {
+        respond((_) => json(page([], total: 50, skip: 40)));
+
+        final result = await repository.getProducts(
+          query: const CatalogQuery(),
+          offset: 40,
+          limit: 20,
+        );
+
+        expect(result.items, isEmpty);
+        expect(result.hasMore, isFalse);
+      },
+    );
+
+    test('searches with q and sort parameters', () async {
+      respond((_) => json(page([1], total: 1)));
+
+      await list(
+        query: const CatalogQuery(
+          search: 'phone case',
+          sort: ProductSort.priceHighToLow,
+        ),
+      );
+
+      final uri = adapter.requests.single.uri;
+      expect(uri.path, '/products/search');
+      expect(uri.queryParameters, {
+        'q': 'phone case',
+        'limit': '20',
+        'skip': '0',
+        'sortBy': 'price',
+        'order': 'desc',
+      });
+    });
+
+    test('filters by category', () async {
+      respond((_) => json(page([1], total: 1)));
+
+      await list(
+        query: const CatalogQuery(
+          categorySlug: 'skin-care',
+          sort: ProductSort.ratingHighToLow,
+        ),
+      );
+
+      final uri = adapter.requests.single.uri;
+      expect(uri.path, '/products/category/skin-care');
+      expect(uri.queryParameters['sortBy'], 'rating');
+      expect(uri.queryParameters['order'], 'desc');
+    });
+
+    test('rejects a response without products or total', () async {
+      respond((_) => json([productJson(1)]));
+      await expectLater(list(), throwsAppError(AppErrorType.invalidData));
+
+      respond((_) => json({'products': []}));
+      await expectLater(list(), throwsAppError(AppErrorType.invalidData));
     });
 
     test('rejects the whole page if one product is malformed', () {
       respond(
-        (_) => json([
-          productJson(1),
-          {'id': 2},
-        ]),
+        (_) => json({
+          'products': [
+            productJson(1),
+            {'id': 2},
+          ],
+          'total': 2,
+        }),
       );
-      expect(
-        repository.getProducts(offset: 0, limit: 20),
-        throwsAppError(AppErrorType.invalidData),
-      );
+      expect(list(), throwsAppError(AppErrorType.invalidData));
     });
 
     test('maps 404 on the list to a server error, not "not found"', () {
       respond((_) => json({'message': 'nope'}, 404));
-      expect(
-        repository.getProducts(offset: 0, limit: 20),
-        throwsAppError(AppErrorType.server),
-      );
+      expect(list(), throwsAppError(AppErrorType.server));
     });
 
     test('maps HTTP 500 to a server error', () {
       respond((_) => json({'message': 'boom'}, 500));
-      expect(
-        repository.getProducts(offset: 0, limit: 20),
-        throwsAppError(AppErrorType.server),
-      );
+      expect(list(), throwsAppError(AppErrorType.server));
     });
 
     test('maps invalid JSON to invalid data', () {
@@ -141,10 +193,7 @@ void main() {
           },
         ),
       );
-      expect(
-        repository.getProducts(offset: 0, limit: 20),
-        throwsAppError(AppErrorType.invalidData),
-      );
+      expect(list(), throwsAppError(AppErrorType.invalidData));
     });
 
     test('maps timeouts', () {
@@ -154,10 +203,7 @@ void main() {
           type: DioExceptionType.receiveTimeout,
         ),
       );
-      expect(
-        repository.getProducts(offset: 0, limit: 20),
-        throwsAppError(AppErrorType.timeout),
-      );
+      expect(list(), throwsAppError(AppErrorType.timeout));
     });
 
     test('maps connection errors and socket errors to network', () async {
@@ -167,23 +213,22 @@ void main() {
           type: DioExceptionType.connectionError,
         ),
       );
-      await expectLater(
-        repository.getProducts(offset: 0, limit: 20),
-        throwsAppError(AppErrorType.network),
-      );
+      await expectLater(list(), throwsAppError(AppErrorType.network));
 
       respond((_) => throw const SocketException('offline'));
-      await expectLater(
-        repository.getProducts(offset: 0, limit: 20),
-        throwsAppError(AppErrorType.network),
-      );
+      await expectLater(list(), throwsAppError(AppErrorType.network));
     });
 
     test('maps cancellation to cancelled', () {
-      respond((_) => json([]));
+      respond((_) => json(page([], total: 0)));
       final token = CancelToken()..cancel();
       expect(
-        repository.getProducts(offset: 0, limit: 20, cancelToken: token),
+        repository.getProducts(
+          query: const CatalogQuery(),
+          offset: 0,
+          limit: 20,
+          cancelToken: token,
+        ),
         throwsAppError(AppErrorType.cancelled),
       );
     });
@@ -195,27 +240,17 @@ void main() {
 
       final product = await repository.getProduct(5);
 
-      expect(adapter.requests.single.uri.path, '/v1/products/5');
+      expect(adapter.requests.single.uri.path, '/products/5');
       expect(product.id, 5);
-      expect(product.category.name, 'Clothes');
+      expect(product.brand, 'Acme');
     });
 
     test('maps HTTP 404 to not found', () {
-      respond((_) => json({'message': 'missing'}, 404));
+      respond((_) => json({'message': "Product with id '5' not found"}, 404));
       expect(repository.getProduct(5), throwsAppError(AppErrorType.notFound));
     });
 
-    test('maps the API\'s HTTP 400 EntityNotFoundError to not found', () {
-      respond(
-        (_) => json({
-          'name': 'EntityNotFoundError',
-          'message': 'Could not find any entity',
-        }, 400),
-      );
-      expect(repository.getProduct(5), throwsAppError(AppErrorType.notFound));
-    });
-
-    test('maps other HTTP 400 responses to a server error', () {
+    test('maps HTTP 400 to a server error', () {
       respond((_) => json({'message': 'bad'}, 400));
       expect(repository.getProduct(5), throwsAppError(AppErrorType.server));
     });
@@ -224,6 +259,30 @@ void main() {
       respond((_) => json(productJson(6)));
       expect(
         repository.getProduct(5),
+        throwsAppError(AppErrorType.invalidData),
+      );
+    });
+  });
+
+  group('getCategories', () {
+    test('parses the category list', () async {
+      respond(
+        (_) => json([
+          {'slug': 'beauty', 'name': 'Beauty', 'url': 'https://x.test'},
+          {'slug': 'skin-care', 'name': 'Skin Care', 'url': 'https://x.test'},
+        ]),
+      );
+
+      final categories = await repository.getCategories();
+
+      expect(adapter.requests.single.uri.path, '/products/categories');
+      expect(categories.map((c) => c.slug), ['beauty', 'skin-care']);
+    });
+
+    test('rejects a malformed list', () {
+      respond((_) => json({'categories': []}));
+      expect(
+        repository.getCategories(),
         throwsAppError(AppErrorType.invalidData),
       );
     });

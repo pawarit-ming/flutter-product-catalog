@@ -5,24 +5,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../core/network/dio_provider.dart';
+import 'catalog_query.dart';
 import 'product.dart';
+import 'product_category.dart';
 import 'product_page.dart';
 
 abstract interface class ProductRepository {
   Future<ProductPage> getProducts({
+    required CatalogQuery query,
     required int offset,
     required int limit,
     CancelToken? cancelToken,
   });
 
   Future<Product> getProduct(int id, {CancelToken? cancelToken});
+
+  Future<List<ProductCategory>> getCategories({CancelToken? cancelToken});
 }
 
 final productRepositoryProvider = Provider<ProductRepository>(
   (ref) => DioProductRepository(ref.watch(dioProvider)),
 );
 
-/// Talks to the Platzi Fake Store API. Every failure is rethrown as an
+/// Talks to the DummyJSON products API. Every failure is rethrown as an
 /// [AppException].
 class DioProductRepository implements ProductRepository {
   DioProductRepository(this._dio);
@@ -31,25 +36,49 @@ class DioProductRepository implements ProductRepository {
 
   @override
   Future<ProductPage> getProducts({
+    required CatalogQuery query,
     required int offset,
     required int limit,
     CancelToken? cancelToken,
   }) async {
+    // limit=0 means "everything" to this API, so never send it.
+    assert(limit > 0);
+    final category = query.categorySlug;
+    final path = query.isSearching
+        ? '/products/search'
+        : category != null
+        ? '/products/category/${Uri.encodeComponent(category)}'
+        : '/products';
+
     final data = await _get(
-      '/products',
-      queryParameters: {'offset': offset, 'limit': limit},
+      path,
+      queryParameters: {
+        if (query.isSearching) 'q': query.search,
+        'limit': limit,
+        'skip': offset,
+        'sortBy': ?query.sort.sortBy,
+        'order': ?query.sort.order,
+      },
       cancelToken: cancelToken,
       isDetail: false,
     );
-    if (data is! List) throw AppException(AppErrorType.invalidData);
+
+    if (data is! Map) throw AppException(AppErrorType.invalidData);
+    final rawItems = data['products'];
+    final total = data['total'];
+    if (rawItems is! List || total is! int || total < 0) {
+      throw AppException(AppErrorType.invalidData);
+    }
 
     // Reject the whole page if any product is malformed, so pagination never
     // looks complete while items were silently dropped.
-    final items = _parse(() => data.map(Product.fromJson).toList());
+    final items = _parse(() => rawItems.map(Product.fromJson).toList());
+    final nextOffset = offset + rawItems.length;
     return ProductPage(
       items: items,
-      nextOffset: offset + data.length,
-      hasMore: data.length >= limit,
+      nextOffset: nextOffset,
+      total: total,
+      hasMore: rawItems.isNotEmpty && nextOffset < total,
     );
   }
 
@@ -63,6 +92,19 @@ class DioProductRepository implements ProductRepository {
     final product = _parse(() => Product.fromJson(data));
     if (product.id != id) throw AppException(AppErrorType.invalidData);
     return product;
+  }
+
+  @override
+  Future<List<ProductCategory>> getCategories({
+    CancelToken? cancelToken,
+  }) async {
+    final data = await _get(
+      '/products/categories',
+      cancelToken: cancelToken,
+      isDetail: false,
+    );
+    if (data is! List) throw AppException(AppErrorType.invalidData);
+    return _parse(() => data.map(ProductCategory.fromJson).toList());
   }
 
   Future<Object?> _get(
@@ -107,8 +149,7 @@ class DioProductRepository implements ProductRepository {
         return AppException(AppErrorType.network);
       case DioExceptionType.badResponse:
         final status = e.response?.statusCode;
-        if (isDetail &&
-            (status == 404 || _isEntityNotFound(e.response?.data))) {
+        if (isDetail && status == 404) {
           return AppException(AppErrorType.notFound, statusCode: status);
         }
         return AppException(AppErrorType.server, statusCode: status);
@@ -120,9 +161,4 @@ class DioProductRepository implements ProductRepository {
         };
     }
   }
-
-  /// The API answers an unknown product id with HTTP 400 and
-  /// `{"name": "EntityNotFoundError"}` rather than 404.
-  bool _isEntityNotFound(Object? data) =>
-      data is Map && data['name'] == 'EntityNotFoundError';
 }

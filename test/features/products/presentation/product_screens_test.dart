@@ -4,10 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:product_catalog/app.dart';
 import 'package:product_catalog/core/errors/app_exception.dart';
 import 'package:product_catalog/core/riverpod/no_retry.dart';
+import 'package:product_catalog/features/products/data/catalog_query.dart';
 import 'package:product_catalog/features/products/data/product.dart';
 import 'package:product_catalog/features/products/data/product_category.dart';
 import 'package:product_catalog/features/products/data/product_repository.dart';
 import 'package:product_catalog/features/products/presentation/product_list_screen.dart';
+import 'package:product_catalog/features/products/presentation/widgets/product_card.dart';
+import 'package:product_catalog/features/products/presentation/widgets/product_grid.dart';
 
 import '../../../helpers/fake_product_repository.dart';
 import '../../../helpers/fixtures.dart';
@@ -27,9 +30,16 @@ void main() {
     );
   }
 
+  /// Starts the app and completes the first page with [items].
+  Future<void> pumpLoaded(WidgetTester tester, List<Product> items) async {
+    await pumpApp(tester);
+    repository.listRequests.single.succeed(items);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> pullToRefresh(WidgetTester tester) async {
     await tester.fling(
-      find.byType(CustomScrollView),
+      find.byType(CustomScrollView).first,
       const Offset(0, 400),
       1000,
     );
@@ -37,11 +47,27 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   }
 
-  /// Scrolls the list until [finder] is fully on screen.
+  /// Scrolls the catalog until [finder] is fully on screen.
   Future<void> scrollTo(WidgetTester tester, Finder finder) async {
-    await tester.scrollUntilVisible(finder, 200);
+    await tester.scrollUntilVisible(
+      finder,
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ProductListScreen),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
     await tester.ensureVisible(finder);
     await tester.pumpAndSettle();
+  }
+
+  /// Scrolls whatever contains [finder] until it is on screen, then taps it.
+  Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    await tester.tap(finder);
   }
 
   /// Finishes a page transition without waiting for a loading spinner, which
@@ -53,29 +79,43 @@ void main() {
 
   ScrollPosition listPosition(WidgetTester tester) => tester
       .state<ScrollableState>(
-        find.descendant(
-          of: find.byType(CustomScrollView),
-          matching: find.byType(Scrollable),
-        ),
+        find
+            .descendant(
+              of: find.byType(ProductListScreen),
+              matching: find.byType(Scrollable),
+            )
+            .last,
       )
       .position;
 
+  Finder navItem(String label) => find.descendant(
+    of: find.byType(NavigationBar),
+    matching: find.text(label),
+  );
+
   group('product list', () {
-    testWidgets('shows loading, then names and prices', (tester) async {
+    testWidgets('shows a skeleton, then names, prices and the count', (
+      tester,
+    ) async {
       await pumpApp(tester);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byKey(const Key('product-skeleton')), findsOneWidget);
 
       repository.listRequests.single.succeed([
-        product(1, price: 44),
+        product(1, price: 100, discount: 12),
         product(2, price: 9.5),
       ]);
       await tester.pumpAndSettle();
 
       expect(find.text('Product 1'), findsOneWidget);
-      expect(find.text(r'$44.00'), findsOneWidget);
+      expect(find.text(r'$88.00'), findsOneWidget);
+      // The struck-through list price only shows when it fits beside the
+      // sale price; the wide test font hides it here (checked on detail).
+      expect(find.text('-12%'), findsOneWidget);
       expect(find.text('Product 2'), findsOneWidget);
       expect(find.text(r'$9.50'), findsOneWidget);
-      expect(find.text("You've reached the end"), findsOneWidget);
+      expect(find.text('แสดง 2 จาก 2 รายการ'), findsOneWidget);
+      expect(find.text('มีสินค้า 50 ชิ้น'), findsNWidgets(2));
+      await scrollTo(tester, find.text('แสดงครบทุกรายการแล้ว'));
     });
 
     testWidgets('error state retries the initial load', (tester) async {
@@ -88,10 +128,10 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.text('Retry'));
+      await tester.tap(find.text('ลองอีกครั้ง'));
       await tester.pump();
       expect(repository.listRequests, hasLength(2));
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byKey(const Key('product-skeleton')), findsOneWidget);
 
       repository.listRequests.last.succeed(products(1, 3));
       await tester.pumpAndSettle();
@@ -114,10 +154,8 @@ void main() {
     testWidgets('empty state can be refreshed; a failure shows once', (
       tester,
     ) async {
-      await pumpApp(tester);
-      repository.listRequests.single.succeed([]);
-      await tester.pumpAndSettle();
-      expect(find.text('No products found'), findsOneWidget);
+      await pumpLoaded(tester, []);
+      expect(find.text('ไม่พบสินค้า'), findsOneWidget);
 
       await pullToRefresh(tester);
       expect(repository.listRequests, hasLength(2));
@@ -125,50 +163,163 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.textContaining("Couldn't refresh"), findsOneWidget);
-      expect(find.text('No products found'), findsOneWidget);
+      expect(find.textContaining('รีเฟรชไม่สำเร็จ'), findsOneWidget);
+      expect(find.text('ไม่พบสินค้า'), findsOneWidget);
       await tester.pumpAndSettle();
     });
 
     testWidgets('load more shows a spinner, then retry after a failure', (
       tester,
     ) async {
-      await pumpApp(tester);
-      repository.listRequests.single.succeed(products(1, 20));
-      await tester.pumpAndSettle();
+      await pumpLoaded(tester, products(1, 20));
 
-      await scrollTo(tester, find.text('Load more'));
-      await tester.tap(find.text('Load more'));
+      await scrollTo(tester, find.text('โหลดเพิ่มเติม'));
+      await tester.tap(find.text('โหลดเพิ่มเติม'));
       await tester.pump();
       expect(repository.listRequests.last.offset, 20);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
       repository.listRequests.last.fail(AppErrorType.network);
       await tester.pumpAndSettle();
       expect(find.text('Product 20'), findsOneWidget, reason: 'items kept');
-      await scrollTo(tester, find.text('Retry'));
+      await scrollTo(tester, find.text('ลองอีกครั้ง'));
 
-      await tester.tap(find.text('Retry'));
+      await tester.tap(find.text('ลองอีกครั้ง'));
       await tester.pump();
       expect(repository.listRequests.last.offset, 20);
       repository.listRequests.last.succeed(products(21, 25));
       await tester.pumpAndSettle();
 
       await scrollTo(tester, find.text('Product 25'));
-      expect(find.text('Load more'), findsNothing);
+      expect(find.text('โหลดเพิ่มเติม'), findsNothing);
     });
   });
 
-  group('navigation', () {
+  group('search, category and sort', () {
+    testWidgets('search is debounced and can be cleared', (tester) async {
+      await pumpLoaded(tester, products(1, 3));
+
+      await tester.enterText(find.byType(TextField), 'phone');
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(repository.listRequests, hasLength(1));
+
+      await tester.pump(searchDebounce);
+      expect(repository.listRequests, hasLength(2));
+      expect(repository.listRequests.last.query.search, 'phone');
+
+      repository.listRequests.last.succeed([]);
+      await tester.pumpAndSettle();
+      expect(find.text('ไม่พบสินค้าที่ตรงกับ "phone"'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'ล้างการค้นหา'));
+      await tester.pump();
+      expect(repository.listRequests.last.query.search, isEmpty);
+      expect(find.text('phone'), findsNothing);
+      repository.listRequests.last.succeed(products(1, 3));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('category chips and sort reload the list', (tester) async {
+      await pumpLoaded(tester, products(1, 3));
+      repository.categoryRequests.single.complete(const [
+        ProductCategory(slug: 'beauty', name: 'Beauty'),
+        ProductCategory(slug: 'laptops', name: 'Laptops'),
+      ]);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Laptops'));
+      await tester.pump();
+      expect(repository.listRequests.last.query.categorySlug, 'laptops');
+      repository.listRequests.last.succeed([]);
+      await tester.pumpAndSettle();
+      expect(find.text('ไม่มีสินค้าในหมวดนี้'), findsOneWidget);
+
+      await tester.tap(find.text('แนะนำ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ราคา: ต่ำ → สูง').last);
+      await tester.pumpAndSettle();
+
+      final request = repository.listRequests.last;
+      expect(request.query.sort, ProductSort.priceLowToHigh);
+      expect(request.query.categorySlug, 'laptops');
+      request.succeed(products(1, 2));
+      await tester.pumpAndSettle();
+      expect(find.text('ราคา: ต่ำ → สูง'), findsOneWidget);
+    });
+
+    testWidgets('picking a category tab filters the catalog', (tester) async {
+      await pumpLoaded(tester, products(1, 3));
+      repository.categoryRequests.single.complete(const [
+        ProductCategory(slug: 'skin-care', name: 'Skin Care'),
+      ]);
+
+      await tester.tap(navItem('หมวดหมู่'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'Skin Care'));
+      await tester.pump();
+
+      expect(repository.listRequests.last.query.categorySlug, 'skin-care');
+      repository.listRequests.last.succeed(products(7, 8));
+      await tester.pumpAndSettle();
+      expect(find.text('Product 7'), findsOneWidget);
+    });
+  });
+
+  group('cart and wishlist', () {
+    testWidgets('adding from a card updates the badge and the cart', (
+      tester,
+    ) async {
+      await pumpLoaded(tester, [product(1, price: 20), product(2)]);
+
+      await tester.tap(find.byTooltip('ใส่ตะกร้า').first);
+      await tester.pump();
+      await tester.tap(find.byTooltip('ใส่ตะกร้า').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(of: find.byType(Badge), matching: find.text('2')),
+        findsOneWidget,
+      );
+
+      await tester.tap(navItem('ตะกร้า'));
+      await tester.pumpAndSettle();
+      expect(find.text('ตะกร้าสินค้า'), findsOneWidget);
+      expect(find.text('Product 1'), findsOneWidget);
+      expect(find.text('2 ชิ้น'), findsOneWidget);
+      expect(find.text(r'$40.00'), findsNWidgets(2)); // line and total
+
+      await tester.tap(find.byTooltip('นำออกจากตะกร้า'));
+      await tester.pumpAndSettle();
+      expect(find.text('ตะกร้าว่างเปล่า'), findsOneWidget);
+    });
+
+    testWidgets('heart button saves to the wishlist', (tester) async {
+      await pumpLoaded(tester, [product(1), product(2)]);
+
+      await tester.tap(find.byTooltip('เพิ่มในรายการโปรด').last);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('นำออกจากรายการโปรด'), findsOneWidget);
+
+      await tester.tap(navItem('รายการโปรด'));
+      await tester.pumpAndSettle();
+      final wishlist = find.byType(CustomScrollView).last;
+      expect(
+        find.descendant(of: wishlist, matching: find.text('Product 2')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: wishlist, matching: find.text('Product 1')),
+        findsNothing,
+      );
+    });
+  });
+
+  group('product detail', () {
     testWidgets('opens the tapped product and returns to the same place', (
       tester,
     ) async {
-      await pumpApp(tester);
-      repository.listRequests.single.succeed(products(1, 20));
-      await tester.pumpAndSettle();
+      await pumpLoaded(tester, products(1, 20));
 
       await scrollTo(tester, find.text('Product 9'));
-      await tester.pumpAndSettle();
       final offset = listPosition(tester).pixels;
       expect(offset, greaterThan(0));
 
@@ -177,20 +328,26 @@ void main() {
       expect(repository.detailRequests.single.id, 9);
 
       repository.detailRequests.single.succeed(
-        const Product(
-          id: 9,
-          title: 'Detailed product',
-          price: 12.5,
-          description: 'A long description',
-          category: ProductCategory(name: 'Shoes'),
-          images: [],
-        ),
+        Product.fromJson({
+          ...productJsonWithoutImages(9),
+          'price': 100,
+          'discountPercentage': 10,
+        }),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Detailed product'), findsWidgets);
-      expect(find.text(r'$12.50'), findsOneWidget);
-      expect(find.text('A long description'), findsOneWidget);
-      expect(find.text('Shoes'), findsOneWidget);
+      expect(find.text('Product 9'), findsWidgets);
+      expect(find.text(r'$90.00'), findsOneWidget);
+      expect(find.text(r'$100.00'), findsOneWidget);
+      expect(find.textContaining('ประหยัด'), findsOneWidget);
+      expect(find.textContaining('SKU-9'), findsOneWidget);
+      expect(find.text('Description of product 9'), findsOneWidget);
+
+      await tapVisible(tester, find.text('การจัดส่งและคืนสินค้า'));
+      await tester.pumpAndSettle();
+      expect(find.text('30 days return policy'), findsOneWidget);
+      await tapVisible(tester, find.text('รีวิว (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Great!'), findsOneWidget);
 
       await tester.pageBack();
       await tester.pumpAndSettle();
@@ -200,10 +357,43 @@ void main() {
       expect(find.text('Product 9'), findsOneWidget);
     });
 
-    testWidgets('detail error retries only that product', (tester) async {
-      await pumpApp(tester);
-      repository.listRequests.single.succeed(products(1, 2));
+    testWidgets('quantity, add to cart and buy now', (tester) async {
+      await pumpLoaded(tester, [product(1)]);
+      await tester.tap(find.text('Product 1'));
+      await pumpRouteTransition(tester);
+      repository.detailRequests.single.succeed(product(1, stock: 3));
       await tester.pumpAndSettle();
+
+      await tapVisible(tester, find.byTooltip('เพิ่มจำนวน'));
+      await tester.pump();
+      await tester.tap(find.text('ใส่ตะกร้า'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('ลงตะกร้าแล้ว'), findsOneWidget);
+
+      // Only 1 left in stock, so Buy now caps the cart at 3.
+      await tester.tap(find.text('ซื้อเลย'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ตะกร้าสินค้า'), findsOneWidget);
+      expect(find.text('3 ชิ้น'), findsOneWidget);
+    });
+
+    testWidgets('out of stock disables buying', (tester) async {
+      await pumpLoaded(tester, [product(1)]);
+      await tester.tap(find.text('Product 1'));
+      await pumpRouteTransition(tester);
+      repository.detailRequests.single.succeed(product(1, stock: 0));
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'สินค้าหมด'),
+      );
+      expect(button.onPressed, isNull);
+      expect(find.text('ซื้อเลย'), findsNothing);
+    });
+
+    testWidgets('error retries only that product', (tester) async {
+      await pumpLoaded(tester, products(1, 2));
 
       await tester.tap(find.text('Product 2'));
       await pumpRouteTransition(tester);
@@ -214,7 +404,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.text('Retry'));
+      await tester.tap(find.text('ลองอีกครั้ง'));
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(repository.detailRequests, hasLength(2));
@@ -228,17 +418,15 @@ void main() {
     testWidgets('missing product shows not found and can go back', (
       tester,
     ) async {
-      await pumpApp(tester);
-      repository.listRequests.single.succeed(products(1, 2));
-      await tester.pumpAndSettle();
+      await pumpLoaded(tester, products(1, 2));
 
       await tester.tap(find.text('Product 1'));
       await pumpRouteTransition(tester);
       repository.detailRequests.single.fail(AppErrorType.notFound);
       await tester.pumpAndSettle();
 
-      expect(find.text('Product not found'), findsOneWidget);
-      await tester.tap(find.text('Back to products'));
+      expect(find.text('ไม่พบสินค้า'), findsOneWidget);
+      await tester.tap(find.text('กลับไปหน้ารายการ'));
       await tester.pumpAndSettle();
 
       expect(find.byType(ProductListScreen), findsOneWidget);
@@ -268,34 +456,62 @@ void main() {
             addTearDown(tester.view.reset);
             addTearDown(tester.platformDispatcher.clearAllTestValues);
 
+            const longTitle =
+                'A very long product title that keeps going and going so '
+                'it must be truncated with an ellipsis';
             await pumpApp(tester);
             repository.listRequests.single.succeed([
               for (var id = 1; id <= 20; id++)
                 Product.fromJson({
-                  'id': id,
-                  'title':
-                      'A very long product title that keeps going and '
-                      'going so it must be truncated with an ellipsis $id',
+                  ...productJsonWithoutImages(id),
+                  'title': '$longTitle $id',
                   'price': 123456.78,
-                  'images': <String>[],
+                  'stock': 3,
                 }),
             ]);
+            repository.categoryRequests.single.complete([
+              for (final name in ['Beauty', 'Home Decoration', 'Laptops'])
+                ProductCategory(slug: name.toLowerCase(), name: name),
+            ]);
             await tester.pumpAndSettle();
-            await scrollTo(tester, find.text('Load more'));
+            await scrollTo(tester, find.text('โหลดเพิ่มเติม'));
 
-            await tester.tap(
-              find.textContaining('very long').hitTestable().first,
+            await tester.tap(find.byTooltip('ใส่ตะกร้า').hitTestable().first);
+            await tester.pumpAndSettle();
+            tester
+                .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
+                .removeCurrentSnackBar();
+            listPosition(tester).jumpTo(0);
+            await tester.pumpAndSettle();
+
+            await tapVisible(
+              tester,
+              find
+                  .descendant(
+                    of: find.byType(ProductCard),
+                    matching: find.textContaining('very long'),
+                  )
+                  .first,
             );
             await pumpRouteTransition(tester);
             repository.detailRequests.single.succeed(
               Product.fromJson({
-                'id': repository.detailRequests.single.id,
+                ...productJsonWithoutImages(
+                  repository.detailRequests.single.id,
+                ),
                 'title': 'A very long product title ' * 4,
                 'price': 123456.78,
                 'description': 'Lorem ipsum dolor sit amet. ' * 40,
               }),
             );
             await tester.pumpAndSettle();
+            await tapVisible(tester, find.text('รีวิว (1)'));
+            await tester.pumpAndSettle();
+
+            // The cart screen with a long line item.
+            await tester.tap(find.text('ซื้อเลย'));
+            await tester.pumpAndSettle();
+            expect(find.text('ตะกร้าสินค้า'), findsOneWidget);
 
             expect(tester.takeException(), isNull);
           },
@@ -304,3 +520,10 @@ void main() {
     }
   });
 }
+
+/// Full fixture data without image URLs, so tests never load images.
+Map<String, Object?> productJsonWithoutImages(int id) => {
+  ...productJson(id),
+  'images': <String>[],
+  'thumbnail': null,
+};

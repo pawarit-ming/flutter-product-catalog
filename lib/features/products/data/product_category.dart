@@ -1,24 +1,25 @@
+import '../../../core/formatting/price_format.dart';
+
 class ProductCategory {
-  const ProductCategory({required this.name, this.id, this.image});
+  const ProductCategory({required this.slug, required this.name});
 
-  static const uncategorized = ProductCategory(name: 'Uncategorized');
-
-  /// Falls back to [uncategorized] when the category is missing or has no
-  /// usable name, because it is optional information for the UI.
   factory ProductCategory.fromJson(Object? json) {
-    if (json is! Map) return uncategorized;
+    if (json is! Map) {
+      throw const FormatException('Category must be a JSON object');
+    }
+    final slug = json['slug'];
+    if (slug is! String || slug.trim().isEmpty) {
+      throw const FormatException('Category slug must be a non-empty string');
+    }
     final name = json['name'];
-    if (name is! String || name.trim().isEmpty) return uncategorized;
-    final id = json['id'];
-    final image = json['image'];
     return ProductCategory(
-      id: id is int ? id : null,
-      name: name.trim(),
-      image: image is String ? image : null,
+      slug: slug.trim(),
+      name: name is String && name.trim().isNotEmpty
+          ? name.trim()
+          : humanizeSlug(slug),
     );
   }
 
-  final int? id;
+  final String slug;
   final String name;
-  final String? image;
 }

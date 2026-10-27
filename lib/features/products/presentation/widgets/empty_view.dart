@@ -3,21 +3,28 @@ import 'package:flutter/material.dart';
 import 'error_view.dart';
 
 class EmptyView extends StatelessWidget {
-  const EmptyView({super.key, required this.onRetry});
+  const EmptyView({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+    this.icon = Icons.inventory_2_outlined,
+  });
 
-  final VoidCallback onRetry;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return MessageView(
-      icon: Icons.inventory_2_outlined,
-      title: 'No products found',
-      message: 'Pull down to refresh, or try again.',
-      action: OutlinedButton.icon(
-        onPressed: onRetry,
-        icon: const Icon(Icons.refresh),
-        label: const Text('Try again'),
-      ),
+      icon: icon,
+      title: title,
+      message: message,
+      action: OutlinedButton(onPressed: onAction, child: Text(actionLabel)),
     );
   }
 }

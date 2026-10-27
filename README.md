@@ -1,28 +1,48 @@
 # Product Catalog (Flutter)
 
-A two-screen Flutter app — **Product List** and **Product Detail** — backed by the
-real [Platzi Fake Store API](https://fakeapi.platzi.com/). State is managed with
+A Flutter shopping catalog backed by the real [DummyJSON products API](https://dummyjson.com/docs/products).
+It has a product list with search, category filters, sorting and pagination,
+a detailed product page, a wishlist and a local cart. State is managed with
 **Riverpod**, HTTP is done with **Dio**, and the layout adapts to phones and
-tablets.
+tablets. UI text is Thai; product data is shown as the API returns it.
 
-| Mobile — list | Mobile — detail | Tablet — list | Tablet — detail (landscape) |
+| Catalog | Search | Product detail | Cart |
 |---|---|---|---|
-| ![](docs/screenshots/mobile-list.png) | ![](docs/screenshots/mobile-detail.png) | ![](docs/screenshots/tablet-list.png) | ![](docs/screenshots/tablet-detail.png) |
+| ![](docs/screenshots/mobile-list.png) | ![](docs/screenshots/mobile-search.png) | ![](docs/screenshots/mobile-detail.png) | ![](docs/screenshots/mobile-cart.png) |
+
+| Tablet portrait (4 columns) | Tablet landscape (navigation rail, two-pane detail) |
+|---|---|
+| ![](docs/screenshots/tablet-list.png) | ![](docs/screenshots/tablet-detail.png) |
 
 ## Requirements checklist
 
 | # | Requirement | Where |
 |---|---|---|
-| 1 | List shows image, name, price | `presentation/widgets/product_card.dart` |
-| 2 | Tap opens product detail | `ProductListScreen._openProduct` → `ProductDetailScreen(productId)` |
-| 3 | Riverpod | `productListProvider` (AsyncNotifier), `productDetailProvider` (FutureProvider.family), `dioProvider`, `productRepositoryProvider` |
-| 4 | Dio | `data/product_repository.dart` (`DioProductRepository`) |
-| 5 | Loading / Error / Empty | Initial load, Load More, Refresh and Detail each have their own states |
+| 1 | List shows image, name, price | `products/presentation/widgets/product_card.dart` |
+| 2 | Tap opens product detail | `ProductDetailScreen.open(context, productId)` |
+| 3 | Riverpod | `productListProvider` (AsyncNotifier), `productDetailProvider` (FutureProvider.family), `catalogQueryProvider`, `categoriesProvider`, `cartProvider`, `wishlistProvider`, plus `dioProvider` / `productRepositoryProvider` |
+| 4 | Dio | `products/data/product_repository.dart` (`DioProductRepository`) |
+| 5 | Loading / Error / Empty | Skeleton grid on first load; separate states for Load More, Refresh, Detail and Categories; empty states that match search / category |
 | 6 | Pull-to-refresh | `RefreshIndicator` + `AlwaysScrollableScrollPhysics` (works on empty and error states too) |
-| 7 | Pagination / Load More | "Load more" button with spinner and Retry at the end of the grid |
-| 8 | Mobile and tablet | Column count from real width (1–4), content max 1200 dp, two-pane detail from 840 dp |
-| 9 | UI / State / Repository split | `presentation/` / `application/` / `data/` |
-| 10 | No hardcoded products | All products come from the API; fake data exists only under `test/` |
+| 7 | Pagination / Load More | "โหลดเพิ่มเติม" button with spinner, Retry, page counter and progress bar |
+| 8 | Mobile and tablet | Columns from real width (1–4), content max 1200 dp, navigation rail and two-pane detail from 840 dp |
+| 9 | UI / State / Repository split | `presentation/` / `application/` / `data/` in each feature |
+| 10 | No hardcoded products | Everything comes from the API; fake data exists only under `test/` |
+
+### Extra features
+
+- **Search** with a 400 ms debounce (`/products/search`), **category chips**
+  and a **Categories tab** (`/products/categories`), and **sorting** by price,
+  rating or name (`sortBy` / `order`)
+- **Product cards**: discount badge, rating, sale and list price, stock level
+  (low stock / out of stock), wishlist heart and add-to-cart button
+- **Product detail**: swipeable gallery with thumbnails and page counter;
+  brand, category, SKU, rating with review count, and warranty; savings;
+  stock and shipping; quantity picker; tabs for details/specs,
+  shipping & returns, and reviews; "Add to cart" and "Buy now"
+- **Wishlist** and **cart** held in memory: quantity is limited by stock,
+  totals use the discounted price, and the cart count shows as a badge on
+  the tab
 
 ## Versions
 
@@ -58,141 +78,172 @@ Tests use a fake repository and a fake Dio adapter, so they need no internet.
 
 ```
 lib/
-  main.dart                     ProviderScope (automatic retry disabled)
-  app.dart                      MaterialApp, Material 3 theme
+  main.dart                       ProviderScope (automatic retry disabled)
+  app.dart                        MaterialApp, Material 3 light/dark theme
   core/
-    errors/app_exception.dart   error types + user-facing messages
-    network/dio_provider.dart   shared Dio (10 s connect / 15 s receive timeout)
-    riverpod/no_retry.dart      disables Riverpod 3 automatic retry
+    errors/app_exception.dart     error types + user-facing (Thai) messages
+    network/dio_provider.dart     shared Dio (10 s connect / 15 s receive timeout)
+    riverpod/no_retry.dart        disables Riverpod 3 automatic retry
     formatting/price_format.dart
-  features/products/
-    data/                       Product, ProductCategory, ProductPage, ProductRepository
-    application/                ProductListState, ProductListNotifier, productDetailProvider
-    presentation/               ProductListScreen, ProductDetailScreen, widgets/
+  features/
+    products/
+      data/                       Product, ProductCategory, CatalogQuery, ProductPage, ProductRepository
+      application/                catalog query, categories, product list (pagination), product detail
+      presentation/               catalog screen, detail screen, widgets (card, grid, labels, skeleton)
+    categories/presentation/      Categories tab
+    wishlist/{application,presentation}/
+    cart/{application,presentation}/
+    home/{application,presentation}/  tab state + shell (bottom bar / navigation rail)
 ```
 
 Flow: **UI → Riverpod providers → ProductRepository → Dio → REST API**
 
 - **UI** only renders state and forwards user actions; it never touches Dio.
-- **State** (`ProductListNotifier`) owns the list, the cursor and the Load More /
-  Refresh flags.
-- **Repository** calls the API, validates JSON and turns every failure into an
-  `AppException` (`timeout`, `network`, `notFound`, `server`, `invalidData`,
-  `cancelled`). Users never see raw exceptions or stack traces.
+- **State**: `productListProvider` *watches* `catalogQueryProvider`. Changing
+  the search, category or sort rebuilds the list from page one, and the
+  previous request is cancelled.
+- **Repository** picks the endpoint (`/products`, `/products/search`,
+  `/products/category/{slug}`), validates the JSON, and turns every failure
+  into an `AppException` (`timeout`, `network`, `notFound`, `server`,
+  `invalidData`, `cancelled`). Users never see raw exceptions.
 - Dio and the repository are provided through Riverpod, so tests replace them
   with `overrideWithValue`.
 
-### Data validation
+### Data rules
 
 - `id` (int), `title` (non-empty string) and `price` (non-negative number) are
   required. If any is missing or has the wrong type, the **whole response is
-  rejected** with an "unexpected data" error. Products are never silently
+  rejected** with an "invalid data" error. Products are never silently
   skipped, and no price is replaced with 0.
-- Optional fields fall back: description → "No description available",
-  category → "Uncategorized", images → placeholder.
-- Images are filtered to absolute `http`/`https` URLs. Some API records wrap
-  URLs in stray `["…"]`, which are trimmed off. Failed images show a placeholder.
-- For an unknown product ID the live API returns **HTTP 400** with
-  `"name": "EntityNotFoundError"`, not 404. Both are mapped to "Product not found".
+- Everything else is optional and shown as "unknown" when missing, never
+  invented. Examples: no brand line, no stock label, "ไม่ระบุ" for a missing
+  warranty, a placeholder image. Malformed reviews are skipped.
+- **Price**: the API's `price` is the list price. Sale price =
+  `price × (1 − discountPercentage / 100)`, rounded to cents. This matches
+  how DummyJSON's own carts compute `discountedTotal`. The discount badge
+  shows the rounded percent and is hidden below 1%.
+- The API can't combine search and category in one request. Choosing a
+  category clears the search, and typing a search covers all categories.
 
 ## Pagination and refresh
 
-The API takes `offset` / `limit` and returns a plain JSON array with no total.
+The API takes `limit` / `skip` and returns `{products, total, skip, limit}`.
 
-1. Page size is 20, starting at offset 0.
+1. Page size is 20, starting at skip 0.
 2. `nextOffset = requestOffset + rawItemCount`, counted **before**
    de-duplication. A duplicate ID therefore never shifts the cursor.
-3. `hasMore` is false once a page returns fewer than 20 items (an empty page
-   included). If the last page is exactly 20 items, the next request returns
-   an empty page and ends pagination.
-4. Load More is ignored while a Load More or a Refresh is running. On failure
-   the cursor does not move, so Retry asks for the same offset again.
+3. `hasMore = rawItemCount > 0 && nextOffset < total`. The footer shows
+   "หน้า X จาก Y • โหลดแล้ว N จาก T รายการ" plus a progress bar.
+4. Load More is ignored while a Load More, a Refresh or a query reload is
+   running. On failure the cursor does not move, so Retry asks for the same
+   offset again.
 5. Items are appended only if their ID is not already in the list.
 
-**Refresh while Load More is running.** Each refresh increments a
-*generation* counter and cancels the in-flight Load More via its `CancelToken`.
-Every request records the generation it started with. Its success, error and
-cleanup paths only write state if that generation is still current and the
-provider is still mounted (`ref.mounted`). A slow old request therefore can't
-add stale items, move the cursor, or switch off the new request's spinner.
+**Stale requests.** Each build and each refresh increments a *generation*
+counter. A build's `onDispose` marks the notifier as disposed and cancels its
+`CancelToken`s. Every request records the generation it started with. Its
+success, error and cleanup paths only write state if the notifier is not
+disposed and the generation is still current. A slow Load More from before a
+Refresh or a query change can therefore never add stale items, move the
+cursor, or switch off the new request's spinner. (Riverpod 3's `ref.mounted`
+alone did not catch this case; a test covers it.)
 
 **Refresh semantics.**
 - The current items stay on screen while refreshing.
 - On success the first page replaces the list and the cursor is reset.
-- On failure the old items, cursor and `hasMore` are kept. A SnackBar shows
+- On failure the old items, cursor and `hasMore` are kept, a SnackBar shows
   once for that request, and Load More continues from the old cursor.
-- Concurrent refresh calls share the same Future, and that Future always
+- Concurrent refresh calls share one Future, and that Future always
   completes, so the `RefreshIndicator` never spins forever.
 
 **Lifecycle.**
-- `productListProvider` lives at the root scope and is not auto-disposed.
-  Opening a product and coming back keeps the loaded items and the scroll
-  position (one `ScrollController` plus a `PageStorageKey`), with no reload.
-- `productDetailProvider` is `autoDispose.family` by ID. Leaving the screen
-  cancels only that request, never the shared Dio client.
-- Riverpod 3's automatic retry is turned off. Failures show an explicit Retry
-  button instead of retrying silently in the background.
-- Initial-load Retry invalidates the list provider. Detail Retry invalidates
-  only that product. Load More Retry calls `loadMore()` with the same cursor.
+- The list, query, cart and wishlist providers live at the root scope.
+- The shell uses an `IndexedStack`, so each tab keeps its scroll position and
+  search text. Hidden tabs have tickers disabled.
+- Opening a product and coming back keeps the list and the scroll position,
+  with no reload.
+- `productDetailProvider` is `autoDispose.family` by ID. Leaving the page
+  cancels only that request.
+- Riverpod's automatic retry is off. Failures show an explicit Retry button.
 
 ## Responsive layout
 
 | Available width | Behaviour |
 |---|---|
-| Any | 16 dp side padding, 12 dp gaps, cards ≥ 150 dp wide, 1–4 columns computed from the real width (`LayoutBuilder`) |
+| Any | 16 dp side padding, 12 dp gaps, cards ≥ 150 dp wide, 1–4 columns computed from the real width |
+| ≥ 840 dp | Navigation rail instead of the bottom bar; detail page shows gallery and info side by side |
 | > 1200 dp | Content centred and capped at 1200 dp |
-| Detail < 840 dp | Image above the details |
-| Detail ≥ 840 dp | Image and details side by side |
 
-Card height is calculated from the current text scale, so titles (max 2 lines,
-ellipsis) and prices are never clipped. Widget tests check for overflow at
-360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
+Card height is calculated from the current text scale, so titles (max 2
+lines), prices and stock labels are never clipped. The sale price always gets
+the space it needs; the struck-through list price only appears when it fits
+next to it. Widget tests check for overflow on the catalog, detail and cart
+screens at 360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
 
 ## Testing
 
-`flutter test` runs 62 tests:
+`flutter test` runs 92 tests:
 
-- **Model**: int/decimal prices, optional-field defaults, image URL filtering,
-  rejection of bad id/title/price.
-- **Repository** (fake Dio adapter): query parameters, cursor and `hasMore`,
-  malformed responses, 404 / 400 EntityNotFound / 500 mapping, timeout,
-  network, invalid JSON, cancellation.
-- **State**: first page, empty result, append with duplicates, end of
-  pagination (short page and exact-limit page followed by an empty page),
-  duplicate Load More guard, Load More retry at the same offset, refresh
-  success and failure, shared concurrent refresh, Load More blocked during
-  refresh, stale Load More finishing late (success and failure) after a
-  refresh, and resuming from the old cursor after a failed refresh.
-- **Widgets**: loading / error / empty, Retry, pull-to-refresh on error and
-  empty states, refresh error shown once, Load More spinner and Retry, opening
-  the right product ID, returning with the same scroll position and no reload,
-  detail Retry, "Product not found" with Back, and the overflow matrix above.
+- **Model**: every field, sale price and discount rounding, defaults for
+  missing fields, out of stock, image URL filtering, skipping malformed
+  reviews, rejecting a bad id/title/price, category parsing.
+- **Repository** (fake Dio adapter):
+  - endpoints and query parameters for list, search, category and sort;
+  - cursor and `hasMore` from `total`; an empty page ends pagination;
+  - malformed envelopes;
+  - 404 → not found on detail, but server error on the list;
+  - timeout, network and invalid-JSON mapping; cancellation; categories.
+- **State**:
+  - first page, empty result, append with duplicates, end of pagination;
+  - Load More guard and retry at the same offset;
+  - refresh success, failure and sharing;
+  - stale Load More after a refresh or a query change;
+  - a new query reloads from 0; Load More and Refresh use the current query;
+  - a failed reload never acts on the previous query's items;
+  - cart merge, stock limits, totals, remove and clear; wishlist toggle;
+  - search / category rules.
+- **Widgets**:
+  - skeleton → data, error + Retry, pull-to-refresh on error and empty
+    states, refresh error shown once;
+  - Load More spinner and Retry;
+  - debounced search and clearing it; category chips and sort; the
+    Categories tab;
+  - add to cart from a card with the badge updating; removing from the cart;
+    the wishlist;
+  - opening the right product and returning to the same scroll position;
+    the detail tabs; quantity, Add to cart and Buy now with the stock limit;
+    out of stock; detail Retry; "not found" with Back;
+  - the overflow matrix above.
 
 ### Tested on
 
-- **Android emulator** (Pixel 8, Android 16 / API 36) with the **release APK**:
-  loaded real products and images, Load More, Detail → Back, plus tablet
-  sizes 800×1280 dp and 1280×800 dp (set with `adb shell wm size/density`).
-- **Not tested**: iOS (no macOS/Xcode available), physical Android devices,
-  turning the network off on the emulator mid-request (covered by unit and
-  widget tests with fake failures).
+- **Android emulator** (Pixel 8, Android 16 / API 36) with the **release APK**
+  against the live API. Checked: catalog, search "phone", product detail, add
+  to cart, wishlist heart, and cart totals. Tablet sizes 800×1280 dp and
+  1280×800 dp were set with `adb shell wm size/density`.
+- **Not tested**: iOS (no macOS/Xcode available), physical devices, and
+  switching the network off on the emulator mid-request (covered by unit and
+  widget tests with simulated failures).
 
 ## Assumptions and limitations
 
 - **Currency**: the API has no currency field, so prices are shown as USD with
-  two decimals (`$44.00`). No conversion is done.
-- The API is a public test service: its data and IDs can change at any time,
-  so nothing in the app depends on specific IDs or product counts. Offset
-  paging may skip or repeat items if the data changes between requests.
-  Duplicates are removed, and Refresh reloads from the start.
-- UI text is in English; product content is shown as the API returns it.
-- No image cache package is used (`Image.network` only).
-- Login, cart, search, filters, favourites and offline cache are out of scope.
+  two decimals. No conversion is done.
+- **Units**: the API gives size and weight without units, so the numbers are
+  shown as-is.
+- Cart and wishlist live in memory only and reset when the app restarts.
+  There is **no checkout**; the cart says so instead of showing a button that
+  does nothing.
+- The mockup's colour variants, installment and "100% genuine" badges, and
+  Profile tab are not built: the API has no data for them and there is no
+  login.
+- DummyJSON is a public test service whose data can change, so nothing
+  depends on specific IDs or counts.
 
 ## Possible improvements
 
-- Infinite scroll (auto Load More near the end) alongside the button
-- Image gallery on the detail page, plus an image cache package
-- Search and category filters (the API supports `title` and `categoryId`)
-- Offline cache of the last loaded page
+- Persist the cart and wishlist (e.g. `shared_preferences`) and add checkout
+  behind a real backend
+- Infinite scroll alongside the Load More button
+- An image cache package and a full-screen zoomable gallery
 - Integration tests on a device (`integration_test`) and CI

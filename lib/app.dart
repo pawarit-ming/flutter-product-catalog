@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'features/products/presentation/product_list_screen.dart';
+import 'features/home/presentation/home_shell.dart';
 
 class ProductCatalogApp extends StatelessWidget {
   const ProductCatalogApp({super.key});
@@ -21,7 +21,7 @@ class ProductCatalogApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const ProductListScreen(),
+      home: const HomeShell(),
     );
   }
 }

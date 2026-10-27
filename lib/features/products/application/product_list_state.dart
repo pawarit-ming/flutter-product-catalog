@@ -10,6 +10,7 @@ class ProductListState {
   const ProductListState({
     required this.items,
     required this.nextOffset,
+    required this.total,
     required this.hasMore,
     this.isLoadingMore = false,
     this.loadMoreError,
@@ -20,11 +21,15 @@ class ProductListState {
   factory ProductListState.fromFirstPage(ProductPage page) => ProductListState(
     items: _withoutDuplicates(const [], page.items),
     nextOffset: page.nextOffset,
+    total: page.total,
     hasMore: page.hasMore,
   );
 
   final List<Product> items;
   final int nextOffset;
+
+  /// Total matching products according to the API.
+  final int total;
   final bool hasMore;
   final bool isLoadingMore;
   final AppException? loadMoreError;
@@ -39,6 +44,7 @@ class ProductListState {
   ProductListState appendPage(ProductPage page) => ProductListState(
     items: _withoutDuplicates(items, page.items),
     nextOffset: page.nextOffset,
+    total: page.total,
     hasMore: page.hasMore,
     refreshError: refreshError,
   );
@@ -51,6 +57,7 @@ class ProductListState {
   }) => ProductListState(
     items: items,
     nextOffset: nextOffset,
+    total: total,
     hasMore: hasMore,
     isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     loadMoreError: identical(loadMoreError, _unset)

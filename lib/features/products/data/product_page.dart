@@ -1,11 +1,11 @@
 import 'product.dart';
 
-/// One page of products, built by the repository from the response and the
-/// request parameters (the API itself only returns a JSON array).
+/// One page of products plus the cursor for the next request.
 class ProductPage {
   const ProductPage({
     required this.items,
     required this.nextOffset,
+    required this.total,
     required this.hasMore,
   });
 
@@ -15,6 +15,9 @@ class ProductPage {
   /// de-duplication), so retries and next pages never skip positions.
   final int nextOffset;
 
-  /// False once a page returns fewer items than requested (including empty).
+  /// Total number of matching products reported by the API.
+  final int total;
+
+  /// False once the cursor reaches [total] or a page comes back empty.
   final bool hasMore;
 }

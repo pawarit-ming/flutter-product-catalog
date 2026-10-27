@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-const apiBaseUrl = 'https://api.escuelajs.co/api/v1';
+const apiBaseUrl = 'https://dummyjson.com';
 
 /// A single Dio instance shared by the whole app.
 ///
