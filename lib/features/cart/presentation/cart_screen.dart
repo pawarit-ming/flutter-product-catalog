@@ -302,7 +302,7 @@ class _CheckoutNote extends StatelessWidget {
         const SizedBox(width: AppSpace.sm),
         Expanded(
           child: Text(
-            'แอปตัวอย่างนี้ยังไม่มีขั้นตอนชำระเงิน ตะกร้าจะถูกล้างเมื่อปิดแอป',
+            'แอปตัวอย่างนี้ยังไม่มีขั้นตอนชำระเงิน ตะกร้าจะบันทึกไว้ในเครื่องนี้',
             style: theme.textTheme.bodySmall?.copyWith(color: muted),
           ),
         ),

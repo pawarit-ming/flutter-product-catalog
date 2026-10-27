@@ -483,7 +483,7 @@ void main() {
       expect(find.text('Product 9'), findsOneWidget);
     });
 
-    testWidgets('quantity, add to cart and buy now', (tester) async {
+    testWidgets('quantity, add to cart and view cart', (tester) async {
       await pumpLoaded(tester, [product(1)]);
       await tester.tap(find.text('Product 1'));
       await pumpRouteTransition(tester);
@@ -496,8 +496,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('ลงตะกร้าแล้ว'), findsOneWidget);
 
-      // Only 1 left in stock, so Buy now caps the cart at 3.
-      await tester.tap(find.text('ซื้อเลย'));
+      // Only 1 left in stock, so adding and viewing the cart caps it at 3.
+      await tester.tap(find.text('เพิ่มและดูตะกร้า'));
       await tester.pumpAndSettle();
 
       expect(find.text('ตะกร้าสินค้า'), findsOneWidget);
@@ -515,7 +515,7 @@ void main() {
         find.widgetWithText(FilledButton, 'สินค้าหมด'),
       );
       expect(button.onPressed, isNull);
-      expect(find.text('ซื้อเลย'), findsNothing);
+      expect(find.text('เพิ่มและดูตะกร้า'), findsNothing);
     });
 
     testWidgets('error retries only that product', (tester) async {
@@ -643,7 +643,7 @@ void main() {
             await tester.pumpAndSettle();
 
             // The cart screen with a long line item.
-            await tester.tap(find.text('ซื้อเลย'));
+            await tester.tap(find.text('เพิ่มและดูตะกร้า'));
             await tester.pumpAndSettle();
             expect(find.text('ตะกร้าสินค้า'), findsOneWidget);
 

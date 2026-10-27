@@ -110,6 +110,43 @@ class Product {
   final List<String> images;
   final List<ProductReview> reviews;
 
+  /// A complete snapshot for restoring saved products without an API request.
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'title': title,
+    'price': price,
+    'description': description,
+    'category': categorySlug,
+    'discountPercentage': discountPercentage,
+    'rating': rating,
+    'stock': stock,
+    'brand': brand,
+    'sku': sku,
+    'weight': weight,
+    'dimensions': dimensions == null
+        ? null
+        : {
+            'width': dimensions!.width,
+            'height': dimensions!.height,
+            'depth': dimensions!.depth,
+          },
+    'warrantyInformation': warrantyInformation,
+    'shippingInformation': shippingInformation,
+    'returnPolicy': returnPolicy,
+    'tags': tags,
+    'thumbnail': thumbnail,
+    'images': images,
+    'reviews': [
+      for (final review in reviews)
+        {
+          'rating': review.rating,
+          'comment': review.comment,
+          'reviewerName': review.reviewerName,
+          'date': review.date?.toIso8601String(),
+        },
+    ],
+  };
+
   String get categoryName => humanizeSlug(categorySlug);
 
   /// Whole-percent discount shown on badges; 0 when there is no real discount.

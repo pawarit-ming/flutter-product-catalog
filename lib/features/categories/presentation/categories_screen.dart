@@ -28,62 +28,84 @@ class CategoriesScreen extends ConsumerWidget {
           message: AppException.from(error).message,
           onAction: () => ref.invalidate(categoriesProvider),
         ),
-        data: (list) => ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
-          itemCount: list.length,
-          separatorBuilder: (_, _) => Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: const Divider(indent: 72),
-            ),
-          ),
-          itemBuilder: (context, index) {
-            final category = list[index];
-            final isSelected = category.slug == selected;
-            final colors = Theme.of(context).colorScheme;
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: ListTile(
-                  minVerticalPadding: AppSpace.md,
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainerLowest,
-                      border: Border.all(color: colors.outlineVariant),
-                      borderRadius: BorderRadius.circular(AppRadius.control),
-                    ),
-                    child: Icon(
-                      _iconFor(category.slug),
-                      size: 20,
-                      color: colors.onSurface,
+        data: (list) => list.isEmpty
+            ? CustomScrollView(
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: MessageView(
+                      icon: Icons.category_outlined,
+                      title: 'ยังไม่มีหมวดหมู่',
+                      message: 'ยังไม่มีหมวดหมู่สินค้าในขณะนี้ ลองโหลดอีกครั้ง',
+                      action: OutlinedButton.icon(
+                        onPressed: () => ref.invalidate(categoriesProvider),
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('ลองอีกครั้ง'),
+                      ),
                     ),
                   ),
-                  title: Text(
-                    category.name,
-                    style: TextStyle(
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
+                ],
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+                itemCount: list.length,
+                separatorBuilder: (_, _) => Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: const Divider(indent: 72),
                   ),
-                  selected: isSelected,
-                  trailing: Icon(
-                    isSelected ? Icons.check : Icons.chevron_right,
-                    size: 20,
-                  ),
-                  onTap: () {
-                    ref
-                        .read(catalogQueryProvider.notifier)
-                        .setCategory(category.slug);
-                    ref.read(homeTabProvider.notifier).select(HomeTab.catalog);
-                  },
                 ),
+                itemBuilder: (context, index) {
+                  final category = list[index];
+                  final isSelected = category.slug == selected;
+                  final colors = Theme.of(context).colorScheme;
+                  return Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: ListTile(
+                        minVerticalPadding: AppSpace.md,
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: colors.surfaceContainerLowest,
+                            border: Border.all(color: colors.outlineVariant),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.control,
+                            ),
+                          ),
+                          child: Icon(
+                            _iconFor(category.slug),
+                            size: 20,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        title: Text(
+                          category.name,
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                        selected: isSelected,
+                        trailing: Icon(
+                          isSelected ? Icons.check : Icons.chevron_right,
+                          size: 20,
+                        ),
+                        onTap: () {
+                          ref
+                              .read(catalogQueryProvider.notifier)
+                              .setCategory(category.slug);
+                          ref
+                              .read(homeTabProvider.notifier)
+                              .select(HomeTab.catalog);
+                        },
+                      ),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
       ),
     );
   }

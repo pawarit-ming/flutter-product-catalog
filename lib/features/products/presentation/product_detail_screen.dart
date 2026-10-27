@@ -682,7 +682,7 @@ class _ReviewsTab extends StatelessWidget {
   }
 }
 
-/// Bottom bar with "Add to cart" and "Buy now" (adds, then opens the cart).
+/// Bottom bar with "Add to cart" and "Add and view cart".
 class _PurchaseBar extends ConsumerWidget {
   const _PurchaseBar({required this.product, required this.quantity});
 
@@ -727,7 +727,10 @@ class _PurchaseBar extends ConsumerWidget {
                   showCart(context, ref);
                 }
               },
-              child: const Text('ซื้อเลย'),
+              child: const Text(
+                'เพิ่มและดูตะกร้า',
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
         ],

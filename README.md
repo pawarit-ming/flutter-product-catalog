@@ -2,9 +2,9 @@
 
 A Flutter shopping catalog backed by the real [DummyJSON products API](https://dummyjson.com/docs/products).
 It has a product list with search, category filters, sorting and pagination,
-a detailed product page, a wishlist and a local cart. State is managed with
+a detailed product page, a wishlist and a cart saved on the device. State is managed with
 **Riverpod**, HTTP is done with **Dio**, and the layout adapts to phones and
-tablets. UI text is Thai; product data is shown as the API returns it.
+tablets. UI text and built-in Material/Cupertino controls use Thai; product data is shown as the API returns it.
 
 | Catalog | Search | Product detail | Cart |
 |---|---|---|---|
@@ -66,8 +66,8 @@ Material demo. It is defined once in `lib/core/theme/app_theme.dart`:
 - **Product detail**: swipeable gallery with thumbnails and page counter;
   brand, category, SKU, rating with review count, and warranty; savings;
   stock and shipping; quantity picker; tabs for details/specs,
-  shipping & returns, and reviews; "Add to cart" and "Buy now"
-- **Wishlist** and **cart** held in memory: quantity is limited by stock,
+  shipping & returns, and reviews; "Add to cart" and "เพิ่มและดูตะกร้า"
+- **Wishlist** and **cart** saved locally: quantity is limited by stock,
   totals use the discounted price, and the cart count shows as a badge on
   the tab
 
@@ -79,7 +79,9 @@ Material demo. It is defined once in `lib/core/theme/app_theme.dart`:
 | Dart | 3.10.7 |
 | flutter_riverpod / riverpod | 3.3.2 |
 | dio | 5.11.1 |
-| intl | 0.20.3 |
+| intl | 0.20.2 (pinned by Flutter localizations) |
+| shared_preferences | 2.5.5 |
+| cached_network_image | 3.4.1 |
 
 Exact dependency versions are pinned in `pubspec.lock`.
 
@@ -122,13 +124,14 @@ an actionable error. Debug builds remain available without those files.
 
 ```
 lib/
-  main.dart                       ProviderScope (automatic retry disabled)
-  app.dart                        MaterialApp, Material 3 light/dark theme
+  main.dart                       restore device storage, ProviderScope (automatic retry disabled)
+  app.dart                        Thai MaterialApp, Material 3 light/dark theme
   core/
     errors/app_exception.dart     error types + user-facing (Thai) messages
     network/dio_provider.dart     shared Dio (10 s connect / 15 s receive timeout)
     riverpod/no_retry.dart        disables Riverpod 3 automatic retry
     formatting/price_format.dart
+    storage/                      saved shopping collections and storage issue notice
   features/
     products/
       data/                       Product, ProductCategory, CatalogQuery, ProductPage, ProductRepository
@@ -153,6 +156,21 @@ Flow: **UI → Riverpod providers → ProductRepository → Dio → REST API**
   `/products/category/{slug}`), validates the JSON, and turns every failure
   into an `AppException` (`timeout`, `network`, `notFound`, `server`,
   `invalidData`, `cancelled`). Users never see raw exceptions.
+- **Device storage**: `main()` loads the cart and wishlist with
+  `SharedPreferencesAsync` before starting the app. Providers restore full
+  product snapshots from versioned JSON collections; duplicate IDs are
+  removed/merged and cart quantities are clamped to saved stock. Saves are
+  queued in order so an older write cannot overwrite a later edit or removal.
+  Individual corrupt records are skipped. Failed reads are never overwritten
+  with an empty collection; unavailable storage and failed writes show a
+  dismissible notice. Isolated ProviderScopes use an in-memory store unless
+  explicitly overridden, so widget/unit fixtures need no platform plugins.
+- **Images**: `CachedNetworkImageProvider` uses the device's cache directory.
+  `ResizeImagePolicy.fit` decodes images to their actual layout size and pixel
+  density, capped at 2048 pixels per axis, preserving the source aspect ratio.
+  Missing/failed images keep the existing placeholder; fades respect reduced
+  motion. Disk caching is for native platforms; the package's web provider
+  does not persist image files.
 - Dio and the repository are provided through Riverpod, so tests replace them
   with `overrideWithValue`.
 
@@ -260,7 +278,7 @@ screens at 360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
   - add to cart from a card with the badge updating; removing from the cart;
     the wishlist;
   - opening the right product and returning to the same scroll position;
-    the detail tabs; quantity, Add to cart and Buy now with the stock limit;
+    the detail tabs; quantity, Add to cart and opening the cart with the stock limit;
     out of stock; detail Retry; "not found" with Back;
   - the overflow matrix above.
 
@@ -280,9 +298,11 @@ screens at 360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
   two decimals. No conversion is done.
 - **Units**: the API gives size and weight without units, so the numbers are
   shown as-is.
-- Cart and wishlist live in memory only and reset when the app restarts.
-  There is **no checkout**; the cart says so instead of showing a button that
-  does nothing.
+- Cart and wishlist are saved on this device and restored after restarting.
+  Saved products are snapshots: prices and stock can differ from later API
+  responses. Preferences store convenience data, not orders or payment
+  records; uninstalling the app or clearing its data removes them. There is
+  **no checkout**; the detail button explicitly adds and opens the cart.
 - The mockup's colour variants, installment and "100% genuine" badges, and
   Profile tab are not built: the API has no data for them and there is no
   login.
@@ -291,8 +311,8 @@ screens at 360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
 
 ## Possible improvements
 
-- Persist the cart and wishlist (e.g. `shared_preferences`) and add checkout
+- Revalidate saved product prices/stock against the API, and add checkout
   behind a real backend
 - Infinite scroll alongside the Load More button
-- An image cache package and a full-screen zoomable gallery
+- A full-screen zoomable gallery
 - Integration tests on a device (`integration_test`) and CI

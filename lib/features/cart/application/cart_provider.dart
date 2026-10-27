@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/storage/shopping_storage.dart';
 import '../../products/data/product.dart';
 
 /// Upper bound when the API does not report stock.
@@ -22,7 +23,7 @@ class CartItem {
 /// Result of adding to the cart, so the UI can explain what happened.
 enum AddToCartResult { added, limitedByStock, outOfStock }
 
-/// Shopping cart kept in memory for this app session. There is no checkout:
+/// Shopping cart restored from this device. There is no checkout:
 /// placing orders is outside the scope of this app.
 final cartProvider = NotifierProvider<CartNotifier, List<CartItem>>(
   CartNotifier.new,
@@ -53,7 +54,38 @@ final cartTotalsProvider = Provider<CartTotals>((ref) {
 
 class CartNotifier extends Notifier<List<CartItem>> {
   @override
-  List<CartItem> build() => const [];
+  List<CartItem> build() {
+    final storage = ref.watch(shoppingStorageProvider);
+    final restored = <int, CartItem>{};
+    for (final raw in storage.readList(cartStorageKey)) {
+      try {
+        if (raw is! Map || raw['quantity'] is! int) {
+          throw const FormatException('Invalid saved cart item');
+        }
+        final product = Product.fromJson(raw['product']);
+        final quantity = raw['quantity'] as int;
+        if (quantity <= 0) throw const FormatException('Invalid quantity');
+        final max = CartItem.maxQuantityFor(product);
+        if (max == 0) continue;
+        final previous = restored[product.id]?.quantity ?? 0;
+        restored[product.id] = CartItem(
+          product: product,
+          quantity: (previous + quantity).clamp(1, max),
+        );
+      } on FormatException {
+        storage.reportInvalidData();
+      }
+    }
+    return List.unmodifiable(restored.values);
+  }
+
+  void _commit(List<CartItem> items) {
+    state = List.unmodifiable(items);
+    ref.read(shoppingStorageProvider).writeList(cartStorageKey, [
+      for (final item in items)
+        {'product': item.product.toJson(), 'quantity': item.quantity},
+    ]);
+  }
 
   /// Adds [quantity] units, merging with an existing line and never going
   /// above the available stock.
@@ -88,13 +120,13 @@ class CartNotifier extends Notifier<List<CartItem>> {
   }
 
   void remove(int productId) {
-    state = [
+    _commit([
       for (final item in state)
         if (item.product.id != productId) item,
-    ];
+    ]);
   }
 
-  void clear() => state = const [];
+  void clear() => _commit(const []);
 
   int quantityOf(int productId) => _find(productId)?.quantity ?? 0;
 
@@ -108,11 +140,13 @@ class CartNotifier extends Notifier<List<CartItem>> {
   void _put(Product product, int quantity) {
     final line = CartItem(product: product, quantity: quantity);
     final exists = _find(product.id) != null;
-    state = exists
-        ? [
-            for (final item in state)
-              item.product.id == product.id ? line : item,
-          ]
-        : [...state, line];
+    _commit(
+      exists
+          ? [
+              for (final item in state)
+                item.product.id == product.id ? line : item,
+            ]
+          : [...state, line],
+    );
   }
 }
