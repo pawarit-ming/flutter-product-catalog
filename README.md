@@ -4,43 +4,54 @@ A Flutter shopping catalog backed by the real [DummyJSON products API](https://d
 It has a product list with search, category filters, sorting and pagination,
 a detailed product page, a wishlist and a cart saved on the device. State is managed with
 **Riverpod**, HTTP is done with **Dio**, and the layout adapts to phones and
-tablets. UI text and built-in Material/Cupertino controls use Thai; product data is shown as the API returns it.
+tablets. UI text and built-in Material/Cupertino controls use Thai. Category
+names and the API's shipping, warranty and return-policy phrases are
+translated to Thai; product titles, descriptions, brands and reviews are shown
+as the API returns them.
 
-| Catalog | Search | Product detail | Cart |
-|---|---|---|---|
-| ![](docs/screenshots/mobile-list.png) | ![](docs/screenshots/mobile-search.png) | ![](docs/screenshots/mobile-detail.png) | ![](docs/screenshots/mobile-cart.png) |
+| Catalog | Search | Categories | Product detail | Cart |
+|---|---|---|---|---|
+| ![](docs/screenshots/mobile-list.png) | ![](docs/screenshots/mobile-search.png) | ![](docs/screenshots/mobile-categories.png) | ![](docs/screenshots/mobile-detail.png) | ![](docs/screenshots/mobile-cart.png) |
 
 | Tablet portrait (4 columns) | Tablet landscape (two-pane detail) |
 |---|---|
 | ![](docs/screenshots/tablet-list.png) | ![](docs/screenshots/tablet-detail.png) |
 
 Screenshots were captured on 27 October 2026 from the Android debug build
-of application source `699d463`. Live API products, prices, stock and totals
-may change.
+of application source `00da610` on an Android 17 (API 37) emulator. Tablet
+sizes (800×1280 dp and 1280×800 dp) were set with `adb shell wm size/density`.
+Live API products, prices, stock and totals may change.
 
 ## Design
 
-The visual direction is a calm retail catalogue rather than a default
-Material demo. It is defined once in `lib/core/theme/app_theme.dart`:
+A clean, modern retail look rather than a default Material demo. It is
+defined once in `lib/core/theme/app_theme.dart`:
 
-- **Palette**: warm "paper" background, near-black "ink" for text and primary
-  buttons, and a single brick-red accent reserved for sale prices,
-  discounts and low stock. Light and dark themes share the same tokens.
-  `CatalogColors` (a `ThemeExtension`) holds the retail-specific colours.
-- **Surfaces**: flat. Cards, the gallery and lists use 1 px hairline borders
-  instead of shadows. Product photos sit whole (`BoxFit.contain`) on white
-  tiles instead of being cropped.
-- **Shape and spacing**: a small corner-radius scale (4 badge · 8 thumbnail ·
-  10 control · 12 card) and a 4/8/12/16/24 spacing scale (`AppSpace`,
+- **Palette**: a light grey page with white cards, fields, chips and bars;
+  near-black ink for text, selected chips, tab indicators and focus. Deep
+  green is reserved for buy actions (add to cart). A coral accent marks
+  discounts and savings; amber is used for ratings and orange for low stock.
+  Light and dark themes share the same tokens. `CatalogColors` (a
+  `ThemeExtension`) holds the retail-specific colours.
+- **Category colours**: `CategoryPalette` gives each category a tint and a
+  text colour from an 8-hue table, so products from different categories are
+  easy to tell apart (category name on cards, category pill on the detail
+  page, dots on the Categories tab). Reviewer avatars use the same palette.
+- **Surfaces**: flat white cards on the grey page, no shadows. Product photos
+  sit whole (`BoxFit.contain`) and are multiplied onto their tile so white
+  photo backgrounds blend in.
+- **Shape and spacing**: pill buttons, chips and badges; 12 dp thumbnails and
+  controls; 16 dp cards. Spacing uses a 4/8/12/16/24/32 scale (`AppSpace`,
   `AppRadius`).
-- **Type**:
-  - uppercase, letter-spaced category and brand labels;
-  - tabular figures for prices, quantities and totals;
-  - colour only where it carries meaning — discounted prices, and "only N
-    left" / out of stock. Normal stock text stays neutral.
-- **Components**: ink filter pills without checkmarks; text tabs with an
-  underline on the detail page; two-column spec tables with hairline rows;
-  cart lines separated by dividers instead of nested cards.
+- **Type**: [Anuphan](https://fonts.google.com/specimen/Anuphan), a Thai/Latin
+  variable font bundled in `assets/fonts/` (SIL Open Font License, see
+  `assets/fonts/anuphan-OFL.txt`). Prices, quantities and totals use tabular
+  figures. Colour appears only where it carries meaning: discounted prices,
+  "only N left" and out of stock. Normal stock text stays neutral.
+- **Components**: filter chips without checkmarks; a sort control that shows
+  the current order and changes its fill and border while open; detail
+  information in white cards and stacked sections instead of tabs; cart lines
+  grouped in one card with dividers.
 
 ## Requirements checklist
 
@@ -50,7 +61,7 @@ Material demo. It is defined once in `lib/core/theme/app_theme.dart`:
 | 2 | Tap opens product detail | `ProductDetailScreen.open(context, productId)` |
 | 3 | Riverpod | `productListProvider` (AsyncNotifier), `productDetailProvider` (FutureProvider.family), `catalogQueryProvider`, `categoriesProvider`, `cartProvider`, `wishlistProvider`, plus `dioProvider` / `productRepositoryProvider` |
 | 4 | Dio | `products/data/product_repository.dart` (`DioProductRepository`) |
-| 5 | Loading / Error / Empty | Skeleton grid on first load; separate states for Load More, Refresh, Detail and Categories; empty states that match search / category |
+| 5 | Loading / Error / Empty | Skeleton grid on first load; skeleton category covers; separate states for Load More, Refresh, Detail and Categories; empty states that match search / category |
 | 6 | Pull-to-refresh | `RefreshIndicator` + `AlwaysScrollableScrollPhysics` (works on empty and error states too) |
 | 7 | Pagination / Load More | "โหลดเพิ่มเติม" button with spinner, Retry, page counter and progress bar |
 | 8 | Mobile and tablet | Columns from real width (1–4), content max 1200 dp, navigation rail and two-pane detail from 840 dp |
@@ -59,26 +70,34 @@ Material demo. It is defined once in `lib/core/theme/app_theme.dart`:
 
 ### Extra features
 
-- **Search** with a 400 ms debounce (`/products/search`), **category chips**
-  and a **Categories tab** (`/products/categories`), and **sorting** by price,
-  rating or name (`sortBy` / `order`)
+- **Search** with a 400 ms debounce (`/products/search`), **category chips**,
+  and **sorting** by price, rating or name (`sortBy` / `order`)
+- **Categories tab** (`/products/categories`): categories grouped into
+  departments (beauty, women's and men's fashion, phones and computers, home
+  and kitchen, sports and travel; new API categories go under "หมวดอื่น ๆ").
+  Each tile shows a photo of one of its products, fetched with
+  `/products/category/{slug}?limit=1`. Covers load only once the tab is open,
+  show a skeleton until the photo arrives, and fall back to the category's
+  icon on its tint when there is no photo or the request fails.
   - Price sorting is explicitly labelled **ราคาปกติ** (list price), because
     the API sorts its `price` field before per-product discounts. Displayed
     sale prices can therefore differ from list-price order.
-- **Product cards**: discount badge, rating, sale and list price, stock level
-  (low stock / out of stock), wishlist heart and add-to-cart button
+- **Product cards**: discount badge, rating and coloured category name, sale
+  and list price, stock level (low stock / out of stock), wishlist heart and
+  a round add-to-cart button
 - **Product detail**: swipeable gallery with thumbnails and page counter;
-  brand, category, SKU, rating with review count, and warranty; savings;
-  stock and shipping; quantity picker; tabs for details/specs,
-  shipping & returns, and reviews; primary "ใส่ตะกร้า" and secondary
-  "ดูตะกร้า" (viewing the cart never adds more units)
+  category pill and brand, rating with review count; savings; quantity
+  picker; a card with stock, shipping, warranty and return policy; then
+  sections for the description, specifications (including SKU) and reviews;
+  primary "ใส่ตะกร้า" and secondary "ดูตะกร้า" (viewing the cart never adds
+  more units)
 - **Wishlist** and **cart** saved locally: quantity is limited by stock,
   totals use the discounted price, and the cart count shows as a badge on
   the tab
 - **Cart recovery**: removing a line shows "เลิกทำ" and restores its saved
   quantity and position. A later removal, clearing the cart, or re-adding the
   same product prevents an older Undo from overwriting the current cart.
-- **Readable cards**: two reserved title lines, 12/15/18 dp metadata/title/price
+- **Readable cards**: two reserved title lines, 12/14/16 dp metadata/title/price
   scale, full-width prices and a compact stock/actions row. Normal stock reads
   "มีสินค้า" on cards; low stock and the detail page retain exact quantities.
   Cart remove/quantity controls keep 48 dp touch targets with compact visuals.
@@ -88,8 +107,8 @@ Material demo. It is defined once in `lib/core/theme/app_theme.dart`:
 
 | Tool | Version |
 |---|---|
-| Flutter | 3.38.7 (stable) |
-| Dart | 3.10.7 |
+| Flutter | 3.41.0 (stable) |
+| Dart | 3.11.0 (`pubspec.yaml` requires ^3.10.7) |
 | flutter_riverpod / riverpod | 3.3.2 |
 | dio | 5.11.1 |
 | intl | 0.20.2 (pinned by Flutter localizations) |
@@ -140,6 +159,7 @@ lib/
   main.dart                       restore device storage, ProviderScope (automatic retry disabled)
   app.dart                        Thai MaterialApp, Material 3 light/dark theme
   core/
+    theme/app_theme.dart          colours, category palette, spacing, radii, Anuphan font
     errors/app_exception.dart     error types + user-facing (Thai) messages
     network/dio_provider.dart     shared Dio (10 s connect / 15 s receive timeout)
     riverpod/no_retry.dart        disables Riverpod 3 automatic retry
@@ -147,10 +167,10 @@ lib/
     storage/                      saved shopping collections and storage issue notice
   features/
     products/
-      data/                       Product, ProductCategory, CatalogQuery, ProductPage, ProductRepository
-      application/                catalog query, categories, product list (pagination), product detail
+      data/                       Product, ProductCategory, CatalogQuery, ProductPage, ProductRepository, Thai labels
+      application/                catalog query, categories and their covers, product list (pagination), product detail
       presentation/               catalog screen, detail screen, widgets (card, grid, labels, skeleton)
-    categories/presentation/      Categories tab
+    categories/presentation/      Categories tab (departments and cover tiles)
     wishlist/{application,presentation}/
     cart/{application,presentation}/
     home/{application,presentation}/  tab state + shell (bottom bar / navigation rail)
@@ -166,7 +186,8 @@ Flow: **UI → Riverpod providers → ProductRepository → Dio → REST API**
   Selecting a category from any screen cancels pending input, even when
   reselecting the same category; changing sort preserves pending input.
 - **Repository** picks the endpoint (`/products`, `/products/search`,
-  `/products/category/{slug}`), validates the JSON, and turns every failure
+  `/products/category/{slug}`; a category cover asks that endpoint for one
+  product's `thumbnail` and `images`), validates the JSON, and turns every failure
   into an `AppException` (`timeout`, `network`, `notFound`, `server`,
   `invalidData`, `cancelled`). Users never see raw exceptions.
 - **Device storage**: `main()` loads the cart and wishlist with
@@ -184,6 +205,11 @@ Flow: **UI → Riverpod providers → ProductRepository → Dio → REST API**
   Missing/failed images keep the existing placeholder; fades respect reduced
   motion. Disk caching is for native platforms; the package's web provider
   does not persist image files.
+- **Thai labels**: `products/data/thai_labels.dart` maps the 24 known
+  category slugs to Thai names and rewrites the API's fixed shipping,
+  warranty and return-policy phrases (for example "Ships in 3-5 business
+  days" → "จัดส่งภายใน 3–5 วันทำการ"). Unknown categories keep the API's name
+  and unrecognised phrases are shown unchanged.
 - Dio and the repository are provided through Riverpod, so tests replace them
   with `overrideWithValue`.
 
@@ -264,22 +290,24 @@ detail and cart screens at 360×800, 800×1280 and 1280×800 with text scale
 
 ## Testing
 
-An earlier full `flutter test` run passed all 97 tests, before the device
-persistence and latest UX changes. The exact tested commit was not recorded.
-The suite has not been rerun for the current application source (`699d463`).
-This documentation update does not claim a new full-suite result.
+On application source `00da610`, `flutter analyze` reports no issues and
+`flutter test` passes all 110 tests (Flutter 3.41.0).
 
-The existing tests are intended to cover:
+The tests cover:
 
 - **Model**: every field, sale price and discount rounding, defaults for
   missing fields, out of stock, image URL filtering, skipping malformed
   reviews, rejecting a bad id/title/price, category parsing.
+- **Thai labels**: category names with fallback; shipping ranges, single
+  amounts and overnight; warranty and return-policy amounts and special
+  cases; unrecognised text left unchanged.
 - **Repository** (fake Dio adapter):
   - endpoints and query parameters for list, search, category and sort;
   - cursor and `hasMore` from `total`; an empty page ends pagination;
   - malformed envelopes;
   - 404 → not found on detail, but server error on the list;
-  - timeout, network and invalid-JSON mapping; cancellation; categories.
+  - timeout, network and invalid-JSON mapping; cancellation; categories;
+  - category covers: thumbnail, first image or none, malformed responses.
 - **State**:
   - first page, empty result, append with duplicates, end of pagination;
   - Load More guard and retry at the same offset;
@@ -294,21 +322,23 @@ The existing tests are intended to cover:
     states, refresh error shown once;
   - Load More spinner and Retry;
   - debounced search and clearing it; category chips and sort; the
-    Categories tab;
+    Categories tab, covers loading only once it is open, and the cover
+    skeleton giving way to the fallback icon;
   - category selection (including the active category) cancels pending
     search; sorting keeps the draft; clearing or disposing cancels its timer;
   - add to cart from a card with the badge updating; removing from the cart;
     the wishlist;
   - opening the right product and returning to the same scroll position;
-    the detail tabs; quantity, Add to cart and opening the cart with the stock limit;
+    the detail sections and Thai policy text; quantity, Add to cart and opening the cart with the stock limit;
     out of stock; detail Retry; "not found" with Back;
   - the overflow matrix above.
 
 ### Verification record
 
-- **Current source (`699d463`)**: `flutter analyze` and the Android debug x64
-  build passed. Screens were manually inspected with the debug build on an
-  Android 16 / API 36 emulator, including phone and tablet layouts.
+- **Current source (`00da610`)**: `flutter analyze`, all 110 tests and the
+  Android debug x64 build passed. Catalog, search, Categories, product detail
+  and cart were manually inspected with the debug build on an Android 17 /
+  API 37 emulator against the live API, in phone and tablet layouts.
 - **Historical release check**: earlier project notes record a release-APK
   check against the live API on a Pixel 8 emulator (Android 16 / API 36):
   catalog, search "phone", product detail, add to cart, wishlist heart and
@@ -317,9 +347,8 @@ The existing tests are intended to cover:
   `adb shell wm size/density`. The checked commit and date were not recorded;
   this is not verification of the current release APK.
 - **Not tested**: iOS (no macOS/Xcode available), physical devices, and
-  switching the network off on the emulator mid-request. Existing unit and
-  widget tests simulate network failures; they have not been rerun for the
-  current source.
+  switching the network off on the emulator mid-request. Unit and widget
+  tests simulate network failures instead.
 
 ## Assumptions and limitations
 
