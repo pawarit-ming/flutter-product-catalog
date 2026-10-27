@@ -1,4 +1,5 @@
 /// Sort orders supported by the API (`sortBy` + `order`).
+/// Price sorting uses the list price, before any per-product discount.
 enum ProductSort {
   recommended(null, null),
   priceLowToHigh('price', 'asc'),

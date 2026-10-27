@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -15,13 +14,11 @@ import 'widgets/empty_view.dart';
 import 'widgets/error_view.dart';
 import 'widgets/product_grid.dart';
 
-const searchDebounce = Duration(milliseconds: 400);
-
 extension ProductSortLabel on ProductSort {
   String get label => switch (this) {
     ProductSort.recommended => 'แนะนำ',
-    ProductSort.priceLowToHigh => 'ราคาต่ำไปสูง',
-    ProductSort.priceHighToLow => 'ราคาสูงไปต่ำ',
+    ProductSort.priceLowToHigh => 'ราคาปกติต่ำไปสูง',
+    ProductSort.priceHighToLow => 'ราคาปกติสูงไปต่ำ',
     ProductSort.ratingHighToLow => 'คะแนนรีวิวสูงสุด',
     ProductSort.titleAToZ => 'ชื่อสินค้า A–Z',
   };
@@ -38,12 +35,12 @@ class ProductListScreen extends ConsumerStatefulWidget {
 class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   // Created once so the scroll position survives opening a product.
   final _scrollController = ScrollController();
-  final _searchController = TextEditingController();
-  Timer? _searchDebounce;
+  late final _searchController = TextEditingController(
+    text: ref.read(catalogSearchProvider),
+  );
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -52,26 +49,18 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   CatalogQueryNotifier get _query => ref.read(catalogQueryProvider.notifier);
 
   void _onSearchChanged(String text) {
-    setState(() {}); // shows or hides the clear button
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(searchDebounce, () => _query.setSearch(text));
+    ref.read(catalogSearchProvider.notifier).setText(text);
   }
 
   void _submitSearch(String text) {
-    _searchDebounce?.cancel();
     _query.setSearch(text);
   }
 
   void _clearSearch() {
-    _searchDebounce?.cancel();
-    _searchController.clear();
     _query.setSearch('');
-    setState(() {});
   }
 
   void _selectCategory(String? slug) {
-    _searchDebounce?.cancel();
-    _searchController.clear();
     _query.setCategory(slug);
   }
 
@@ -116,12 +105,15 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
           );
       }
     });
-    ref.listen(catalogQueryProvider, (previous, next) {
-      // Keep the search box in sync when another screen changes the query
-      // (e.g. picking a category clears the search).
-      if (_searchController.text.trim() != next.search) {
-        _searchController.text = next.search;
+    ref.listen(catalogSearchProvider, (previous, next) {
+      if (_searchController.text != next) {
+        _searchController.value = TextEditingValue(
+          text: next,
+          selection: TextSelection.collapsed(offset: next.length),
+        );
       }
+    });
+    ref.listen(catalogQueryProvider, (previous, next) {
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
     });
 
@@ -262,6 +254,8 @@ class _CatalogHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The clear button follows the draft, independently of API query updates.
+    ref.watch(catalogSearchProvider);
     final query = ref.watch(catalogQueryProvider);
     return Center(
       child: ConstrainedBox(

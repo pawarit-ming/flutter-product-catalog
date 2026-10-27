@@ -58,6 +58,9 @@ Material demo. It is defined once in `lib/core/theme/app_theme.dart`:
 - **Search** with a 400 ms debounce (`/products/search`), **category chips**
   and a **Categories tab** (`/products/categories`), and **sorting** by price,
   rating or name (`sortBy` / `order`)
+  - Price sorting is explicitly labelled **ราคาปกติ** (list price), because
+    the API sorts its `price` field before per-product discounts. Displayed
+    sale prices can therefore differ from list-price order.
 - **Product cards**: discount badge, rating, sale and list price, stock level
   (low stock / out of stock), wishlist heart and add-to-cart button
 - **Product detail**: swipeable gallery with thumbnails and page counter;
@@ -93,10 +96,27 @@ Run the checks:
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test
-flutter build apk --release   # output: build/app/outputs/flutter-apk/app-release.apk
+flutter build apk --debug     # development build; no release credentials needed
 ```
 
 Tests use a fake repository and a fake Dio adapter, so they need no internet.
+
+### Android release signing
+
+Release builds use your upload keystore, following the
+[Flutter Android signing guide](https://docs.flutter.dev/deployment/android#sign-the-app).
+They never fall back to a debug key.
+
+1. Create or obtain your upload keystore as described in the guide.
+2. Copy `android/key.properties.example` to `android/key.properties` and
+   replace the path, alias and passwords with your own values. Use forward
+   slashes in Windows paths; relative paths start in the `android/` directory.
+3. Run `flutter build apk --release` or `flutter build appbundle --release`.
+
+The APK is written to `build/app/outputs/flutter-apk/app-release.apk`.
+Missing signing properties or a missing keystore stop the release build with
+an actionable error. Debug builds remain available without those files.
+`android/key.properties` and keystore files are already excluded from Git.
 
 ## Architecture
 
@@ -126,6 +146,9 @@ Flow: **UI → Riverpod providers → ProductRepository → Dio → REST API**
 - **State**: `productListProvider` *watches* `catalogQueryProvider`. Changing
   the search, category or sort rebuilds the list from page one, and the
   previous request is cancelled.
+  `catalogSearchProvider` owns the editable search draft and its debounce.
+  Selecting a category from any screen cancels pending input, even when
+  reselecting the same category; changing sort preserves pending input.
 - **Repository** picks the endpoint (`/products`, `/products/search`,
   `/products/category/{slug}`), validates the JSON, and turns every failure
   into an `AppException` (`timeout`, `network`, `notFound`, `server`,
@@ -206,7 +229,7 @@ screens at 360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
 
 ## Testing
 
-`flutter test` runs 92 tests:
+`flutter test` runs 97 tests:
 
 - **Model**: every field, sale price and discount rounding, defaults for
   missing fields, out of stock, image URL filtering, skipping malformed
@@ -232,6 +255,8 @@ screens at 360×800, 800×1280 and 1280×800 with text scale 1.0 and 1.5.
   - Load More spinner and Retry;
   - debounced search and clearing it; category chips and sort; the
     Categories tab;
+  - category selection (including the active category) cancels pending
+    search; sorting keeps the draft; clearing or disposing cancels its timer;
   - add to cart from a card with the badge updating; removing from the cart;
     the wishlist;
   - opening the right product and returning to the same scroll position;

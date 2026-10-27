@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:product_catalog/app.dart';
 import 'package:product_catalog/core/errors/app_exception.dart';
 import 'package:product_catalog/core/riverpod/no_retry.dart';
+import 'package:product_catalog/features/products/application/catalog_query_provider.dart';
 import 'package:product_catalog/features/products/data/catalog_query.dart';
 import 'package:product_catalog/features/products/data/product.dart';
 import 'package:product_catalog/features/products/data/product_category.dart';
@@ -195,6 +196,129 @@ void main() {
   });
 
   group('search, category and sort', () {
+    testWidgets('clearing a pending search cancels it immediately', (
+      tester,
+    ) async {
+      await pumpLoaded(tester, products(1, 3));
+      await tester.enterText(find.byType(TextField), 'phone');
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.byTooltip('ล้างการค้นหา'));
+      await tester.pump(searchDebounce);
+
+      expect(repository.listRequests, hasLength(1));
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      expect(find.byTooltip('ล้างการค้นหา'), findsNothing);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('disposing the app cancels a pending search', (tester) async {
+      await pumpLoaded(tester, products(1, 3));
+      await tester.enterText(find.byType(TextField), 'phone');
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(searchDebounce);
+
+      expect(repository.listRequests, hasLength(1));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('category tab cancels a pending search', (tester) async {
+      await pumpLoaded(tester, products(1, 3));
+      repository.categoryRequests.single.complete(const [
+        ProductCategory(slug: 'beauty', name: 'Beauty'),
+      ]);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'phone');
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(navItem('หมวดหมู่'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.widgetWithText(ListTile, 'Beauty'));
+      await tester.pump();
+      repository.listRequests.last.succeed(products(4, 6));
+      await tester.pump(searchDebounce);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ProductCatalogApp)),
+      );
+      final query = container.read(catalogQueryProvider);
+      expect(query.categorySlug, 'beauty');
+      expect(query.search, isEmpty);
+      expect(repository.listRequests, hasLength(2));
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Product 4'), findsOneWidget);
+    });
+
+    testWidgets('sort preserves a pending search and its debounce', (
+      tester,
+    ) async {
+      await pumpLoaded(tester, products(1, 3));
+      await tester.enterText(find.byType(TextField), 'phone');
+      await tester.pump(const Duration(milliseconds: 50));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ProductCatalogApp)),
+      );
+      // The same action as the sort menu, before its search is committed.
+      container
+          .read(catalogQueryProvider.notifier)
+          .setSort(ProductSort.priceLowToHigh);
+      await tester.pump();
+      final draft = tester
+          .widget<TextField>(find.byType(TextField))
+          .controller!
+          .text;
+      repository.listRequests.last.succeed(products(1, 3));
+      await tester.pump(searchDebounce);
+      expect(repository.listRequests.last.query.search, 'phone');
+      expect(
+        repository.listRequests.last.query.sort,
+        ProductSort.priceLowToHigh,
+      );
+      repository.listRequests.last.succeed(products(7, 8));
+      await tester.pumpAndSettle();
+      expect(draft, 'phone');
+      expect(find.text('phone'), findsOneWidget);
+      expect(find.text('Product 7'), findsOneWidget);
+    });
+
+    testWidgets('reselecting the same category cancels a pending search', (
+      tester,
+    ) async {
+      await pumpLoaded(tester, products(1, 3));
+      repository.categoryRequests.single.complete(const [
+        ProductCategory(slug: 'beauty', name: 'Beauty'),
+      ]);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Beauty'));
+      await tester.pump();
+      repository.listRequests.last.succeed(products(4, 6));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'phone');
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(navItem('หมวดหมู่'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.widgetWithText(ListTile, 'Beauty'));
+      await tester.pump(searchDebounce);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ProductCatalogApp)),
+      );
+      expect(container.read(catalogQueryProvider).categorySlug, 'beauty');
+      expect(repository.listRequests, hasLength(2));
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('search is debounced and can be cleared', (tester) async {
       await pumpLoaded(tester, products(1, 3));
 
@@ -235,7 +359,7 @@ void main() {
 
       await tester.tap(find.byTooltip('เรียงลำดับ'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('ราคาต่ำไปสูง'));
+      await tester.tap(find.text('ราคาปกติต่ำไปสูง'));
       await tester.pumpAndSettle();
 
       final request = repository.listRequests.last;
@@ -243,7 +367,7 @@ void main() {
       expect(request.query.categorySlug, 'laptops');
       request.succeed(products(1, 2));
       await tester.pumpAndSettle();
-      expect(find.text('ราคาต่ำไปสูง'), findsOneWidget);
+      expect(find.text('ราคาปกติต่ำไปสูง'), findsOneWidget);
     });
 
     testWidgets('picking a category tab filters the catalog', (tester) async {
