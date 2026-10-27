@@ -72,6 +72,13 @@ void main() {
     await tester.tap(finder);
   }
 
+  /// The cart buttons on product cards. Found by icon rather than tooltip,
+  /// because a tooltip's reported centre need not lie on its button.
+  final addToCartButtons = find.widgetWithIcon(
+    IconButton,
+    Icons.add_shopping_cart_outlined,
+  );
+
   /// Finishes a page transition without waiting for a loading spinner, which
   /// never settles while its request is pending.
   Future<void> pumpRouteTransition(WidgetTester tester) async {
@@ -395,9 +402,15 @@ void main() {
     ) async {
       await pumpLoaded(tester, [product(1, price: 20), product(2)]);
 
-      await tester.tap(find.byTooltip('ใส่ตะกร้า').first);
-      await tester.pump();
-      await tester.tap(find.byTooltip('ใส่ตะกร้า').first);
+      // The first row's buttons start just under the navigation bar.
+      await tapVisible(tester, addToCartButtons.first);
+      await tester.pumpAndSettle();
+      // Keep the confirmation from covering the button for the second tap.
+      tester
+          .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
+          .removeCurrentSnackBar();
+      await tester.pumpAndSettle();
+      await tester.tap(addToCartButtons.first);
       await tester.pumpAndSettle();
 
       expect(
@@ -468,14 +481,13 @@ void main() {
       expect(find.textContaining('SKU-9'), findsOneWidget);
       expect(find.text('Description of product 9'), findsOneWidget);
 
-      await tapVisible(tester, find.text('การจัดส่งและคืนสินค้า'));
-      await tester.pumpAndSettle();
+      // All sections are on the page at once, with no tabs to switch.
       expect(find.text('30 days return policy'), findsOneWidget);
-      await tapVisible(tester, find.text('รีวิว (1)'));
-      await tester.pumpAndSettle();
+      expect(find.text('รีวิว (1)'), findsOneWidget);
       expect(find.text('Great!'), findsOneWidget);
 
-      await tester.pageBack();
+      // pageBack() looks for an English "Back" tooltip; the app is in Thai.
+      await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
 
       expect(repository.listRequests, hasLength(1), reason: 'no reload');
@@ -522,7 +534,14 @@ void main() {
         ),
       );
       expect(button.onPressed, isNull);
-      expect(find.text('สินค้าหมด'), findsOneWidget);
+      // The stock fact also reads "สินค้าหมด"; check the button's own label.
+      expect(
+        find.descendant(
+          of: find.byType(FilledButton),
+          matching: find.text('สินค้าหมด'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('ดูตะกร้า'), findsOneWidget);
     });
 
@@ -618,7 +637,7 @@ void main() {
             expect(find.text('เรียงลำดับสินค้า'), findsNothing);
             await scrollTo(tester, find.text('โหลดเพิ่มเติม'));
 
-            await tester.tap(find.byTooltip('ใส่ตะกร้า').hitTestable().first);
+            await tester.tap(addToCartButtons.hitTestable().first);
             await tester.pumpAndSettle();
             tester
                 .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
@@ -647,7 +666,7 @@ void main() {
               }),
             );
             await tester.pumpAndSettle();
-            await tapVisible(tester, find.text('รีวิว (1)'));
+            await tester.ensureVisible(find.text('Great!'));
             await tester.pumpAndSettle();
 
             // The cart screen with a long line item.

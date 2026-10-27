@@ -130,7 +130,13 @@ class _ProductDetailBody extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpace.xl),
-              info,
+              // Keeps lines of the description short enough to read easily.
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: info,
+                ),
+              ),
             ],
           );
         }
@@ -291,9 +297,9 @@ class _GalleryState extends State<_Gallery> {
   }
 }
 
-enum _InfoTab { details, shipping, reviews }
-
-class _ProductInfo extends StatefulWidget {
+/// Everything below the gallery, as one continuous page of headed sections
+/// so nothing is hidden behind tabs.
+class _ProductInfo extends StatelessWidget {
   const _ProductInfo({
     required this.product,
     required this.quantity,
@@ -305,18 +311,14 @@ class _ProductInfo extends StatefulWidget {
   final ValueChanged<int> onQuantityChanged;
 
   @override
-  State<_ProductInfo> createState() => _ProductInfoState();
-}
-
-class _ProductInfoState extends State<_ProductInfo> {
-  _InfoTab _tab = _InfoTab.details;
-
-  @override
   Widget build(BuildContext context) {
-    final product = widget.product;
     final theme = Theme.of(context);
     final rating = product.rating;
     final stock = product.stock;
+    final dimensions = product.dimensions;
+    final weight = product.weight;
+    String number(double value) =>
+        NumberFormat('#,##0.##', 'en_US').format(value);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,57 +352,159 @@ class _ProductInfoState extends State<_ProductInfo> {
             ),
           ),
         ],
-        const SizedBox(height: AppSpace.lg),
-        const Divider(),
-        if (stock != null)
-          _FactRow(
-            icon: Icons.inventory_2_outlined,
-            child: StockLabel(stock: stock, fontSize: 14),
-          ),
-        if (product.shippingInformation case final shipping?)
-          _FactRow(icon: Icons.local_shipping_outlined, text: shipping),
-        if (product.warrantyInformation case final warranty?)
-          _FactRow(icon: Icons.verified_user_outlined, text: warranty),
         if (!product.isOutOfStock) ...[
-          const SizedBox(height: AppSpace.md),
+          const SizedBox(height: AppSpace.lg),
           Row(
             children: [
               Expanded(child: Text('จำนวน', style: theme.textTheme.titleSmall)),
               QuantityStepper(
-                value: widget.quantity,
+                value: quantity,
                 max: CartItem.maxQuantityFor(product),
-                onChanged: widget.onQuantityChanged,
+                onChanged: onQuantityChanged,
               ),
             ],
           ),
         ],
         const SizedBox(height: AppSpace.xl),
-        _SectionTabs(
-          selected: _tab,
-          labels: {
-            _InfoTab.details: 'รายละเอียด',
-            _InfoTab.shipping: 'การจัดส่งและคืนสินค้า',
-            _InfoTab.reviews: 'รีวิว (${product.reviews.length})',
-          },
-          onSelected: (tab) => setState(() => _tab = tab),
+        _InfoCard(
+          children: [
+            if (stock != null)
+              _FactRow(
+                icon: Icons.inventory_2_outlined,
+                label: 'สต็อก',
+                child: StockLabel(stock: stock, fontSize: 14),
+              ),
+            if (product.shippingInformation case final shipping?)
+              _FactRow(
+                icon: Icons.local_shipping_outlined,
+                label: 'การจัดส่ง',
+                text: shipping,
+              ),
+            if (product.warrantyInformation case final warranty?)
+              _FactRow(
+                icon: Icons.verified_user_outlined,
+                label: 'การรับประกัน',
+                text: warranty,
+              ),
+            if (product.returnPolicy case final returns?)
+              _FactRow(
+                icon: Icons.assignment_return_outlined,
+                label: 'การคืนสินค้า',
+                text: returns,
+              ),
+          ],
         ),
-        const SizedBox(height: AppSpace.lg),
-        switch (_tab) {
-          _InfoTab.details => _DetailsTab(product: product),
-          _InfoTab.shipping => _ShippingTab(product: product),
-          _InfoTab.reviews => _ReviewsTab(product: product),
-        },
+        _Section(
+          title: 'รายละเอียดสินค้า',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(product.description, style: theme.textTheme.bodyLarge),
+              if (product.tags.isNotEmpty) ...[
+                const SizedBox(height: AppSpace.lg),
+                Wrap(
+                  spacing: AppSpace.sm,
+                  runSpacing: AppSpace.sm,
+                  children: [for (final tag in product.tags) _TagPill(tag)],
+                ),
+              ],
+            ],
+          ),
+        ),
+        _Section(
+          title: 'ข้อมูลจำเพาะ',
+          child: _SpecTable(
+            rows: {
+              'แบรนด์': product.brand,
+              'หมวดหมู่': product.categoryName,
+              'SKU': product.sku,
+              // The API gives no units for size and weight.
+              'ขนาด (ก × ส × ล)': dimensions == null
+                  ? null
+                  : '${number(dimensions.width)} × '
+                        '${number(dimensions.height)} × '
+                        '${number(dimensions.depth)}',
+              'น้ำหนัก': weight == null ? null : number(weight),
+            },
+          ),
+        ),
+        _Section(
+          title: 'รีวิว (${product.reviews.length})',
+          child: _Reviews(product: product),
+        ),
       ],
     );
   }
 }
 
-/// One line of key facts under the price (stock, shipping, warranty).
+/// A titled block of the detail page, spaced well apart from the previous one.
+class _Section extends StatelessWidget {
+  const _Section({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpace.xxl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+          ),
+          const SizedBox(height: AppSpace.md),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// Rows on a white card, separated by hairlines. Renders nothing when empty.
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0)
+              const Divider(indent: AppSpace.lg, endIndent: AppSpace.lg),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One key fact (stock, shipping, warranty, returns): a small label above
+/// its value, so each line says what it is about.
 class _FactRow extends StatelessWidget {
-  const _FactRow({required this.icon, this.text, this.child})
-    : assert(text != null || child != null);
+  const _FactRow({
+    required this.icon,
+    required this.label,
+    this.text,
+    this.child,
+  }) : assert(text != null || child != null);
 
   final IconData icon;
+  final String label;
   final String? text;
   final Widget? child;
 
@@ -408,161 +512,73 @@ class _FactRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.lg,
+        vertical: AppSpace.md,
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              icon,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(width: AppSpace.md),
           Expanded(
-            child: child ?? Text(text!, style: theme.textTheme.bodyMedium),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Text tabs with an underline, for switching the sections below.
-class _SectionTabs extends StatelessWidget {
-  const _SectionTabs({
-    required this.selected,
-    required this.labels,
-    required this.onSelected,
-  });
-
-  final _InfoTab selected;
-  final Map<_InfoTab, String> labels;
-  final ValueChanged<_InfoTab> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final MapEntry(key: tab, value: label) in labels.entries)
-              Semantics(
-                selected: tab == selected,
-                button: true,
-                child: InkWell(
-                  onTap: () => onSelected(tab),
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpace.md,
-                    ),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          width: 2,
-                          color: tab == selected
-                              ? colors.primary
-                              : Colors.transparent,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      label,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: tab == selected
-                            ? colors.onSurface
-                            : colors.onSurfaceVariant,
-                        fontWeight: tab == selected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DetailsTab extends StatelessWidget {
-  const _DetailsTab({required this.product});
-
-  final Product product;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final dimensions = product.dimensions;
-    final weight = product.weight;
-    String number(double value) =>
-        NumberFormat('#,##0.##', 'en_US').format(value);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(product.description, style: theme.textTheme.bodyLarge),
-        const SizedBox(height: AppSpace.xl),
-        Text('ข้อมูลจำเพาะ', style: theme.textTheme.titleSmall),
-        const SizedBox(height: AppSpace.xs),
-        _SpecTable(
-          rows: {
-            'แบรนด์': product.brand,
-            'หมวดหมู่': product.categoryName,
-            'SKU': product.sku,
-            // The API gives no units for size and weight.
-            'ขนาด (ก × ส × ล)': dimensions == null
-                ? null
-                : '${number(dimensions.width)} × '
-                      '${number(dimensions.height)} × '
-                      '${number(dimensions.depth)}',
-            'น้ำหนัก': weight == null ? null : number(weight),
-          },
-        ),
-        if (product.tags.isNotEmpty) ...[
-          const SizedBox(height: AppSpace.lg),
-          Wrap(
-            spacing: AppSpace.md,
-            runSpacing: AppSpace.xs,
-            children: [
-              for (final tag in product.tags)
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  '#$tag',
+                  label,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-            ],
+                const SizedBox(height: 2),
+                child ?? Text(text!, style: theme.textTheme.bodyMedium),
+              ],
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
 
-class _ShippingTab extends StatelessWidget {
-  const _ShippingTab({required this.product});
+class _TagPill extends StatelessWidget {
+  const _TagPill(this.tag);
 
-  final Product product;
+  final String tag;
 
   @override
   Widget build(BuildContext context) {
-    return _SpecTable(
-      rows: {
-        'การจัดส่ง': product.shippingInformation,
-        'การรับประกัน': product.warrantyInformation,
-        'การคืนสินค้า': product.returnPolicy,
-      },
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.sm,
+        vertical: AppSpace.xs,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(AppRadius.thumb),
+      ),
+      child: Text(
+        tag,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }
 
-/// Two-column key/value list separated by hairlines.
+/// Key/value rows on a card. Values the API leaves out are skipped rather
+/// than listed as unknown.
 class _SpecTable extends StatelessWidget {
   const _SpecTable({required this.rows});
 
@@ -571,43 +587,77 @@ class _SpecTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
+    return _InfoCard(
       children: [
-        for (final MapEntry(key: label, value: value) in rows.entries) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+        for (final MapEntry(key: label, value: value) in rows.entries)
+          if (value != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpace.lg,
+                vertical: AppSpace.md,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: AppSpace.md),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    value ?? 'ไม่ระบุ',
-                    style: theme.textTheme.bodyMedium,
+                  const SizedBox(width: AppSpace.md),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      value,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const Divider(),
-        ],
       ],
     );
   }
 }
 
-class _ReviewsTab extends StatelessWidget {
-  const _ReviewsTab({required this.product});
+/// Five stars, filled up to [rating] rounded to whole stars.
+class _Stars extends StatelessWidget {
+  const _Stars({required this.rating, this.size = 16});
+
+  final double rating;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final filled = rating.round();
+    final starColor = CatalogColors.of(context).rating;
+    final emptyColor = Theme.of(context).colorScheme.outline;
+    return Semantics(
+      label: 'ให้ $filled ดาว',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 1; i <= 5; i++)
+            Icon(
+              i <= filled ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: size,
+              color: i <= filled ? starColor : emptyColor,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Reviews extends StatelessWidget {
+  const _Reviews({required this.product});
 
   final Product product;
 
@@ -623,59 +673,102 @@ class _ReviewsTab extends StatelessWidget {
         ),
       );
     }
+    final rating = product.rating;
     final dateFormat = DateFormat('d/M/y');
-    final starColor = CatalogColors.of(context).rating;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final review in product.reviews) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        if (rating != null) ...[
+          Row(
+            children: [
+              Text(
+                rating.toStringAsFixed(1),
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        review.reviewerName,
-                        style: theme.textTheme.titleSmall,
+                    _Stars(rating: rating, size: 20),
+                    Text(
+                      'จาก ${product.reviews.length} รีวิว',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
-                    if (review.date case final date?)
-                      Text(
-                        dateFormat.format(date),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
                   ],
                 ),
-                const SizedBox(height: AppSpace.xs),
-                Semantics(
-                  label: 'ให้ ${review.rating.round()} ดาว',
-                  excludeSemantics: true,
-                  child: Row(
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.sm),
+          const Divider(),
+        ],
+        for (final (index, review) in product.reviews.indexed) ...[
+          if (index > 0) const Divider(),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.lg),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ExcludeSemantics(
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: colors.secondaryContainer,
+                    foregroundColor: colors.onSecondaryContainer,
+                    child: Text(
+                      review.reviewerName.characters.firstOrNull
+                              ?.toUpperCase() ??
+                          '?',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (var i = 1; i <= 5; i++)
-                        Icon(
-                          i <= review.rating.round()
-                              ? Icons.star_rounded
-                              : Icons.star_outline_rounded,
-                          size: 16,
-                          color: i <= review.rating.round()
-                              ? starColor
-                              : colors.outline,
+                      Text(
+                        review.reviewerName,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
+                      ),
+                      const SizedBox(height: 2),
+                      Wrap(
+                        spacing: AppSpace.sm,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _Stars(rating: review.rating, size: 14),
+                          if (review.date case final date?)
+                            Text(
+                              dateFormat.format(date),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpace.sm),
+                      Text(
+                        review.comment,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.5,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: AppSpace.sm),
-                Text(review.comment, style: theme.textTheme.bodyMedium),
               ],
             ),
           ),
-          const Divider(),
         ],
       ],
     );
