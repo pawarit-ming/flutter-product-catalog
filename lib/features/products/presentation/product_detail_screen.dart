@@ -14,6 +14,7 @@ import '../../wishlist/presentation/wishlist_button.dart';
 import '../application/product_detail_provider.dart';
 import '../data/product.dart';
 import '../data/thai_labels.dart';
+import 'widgets/divided_card.dart';
 import 'widgets/error_view.dart';
 import 'widgets/product_grid.dart' show maxContentWidth;
 import 'widgets/product_image.dart';
@@ -379,7 +380,7 @@ class _ProductInfo extends StatelessWidget {
           ),
         ],
         const SizedBox(height: AppSpace.xl),
-        _InfoCard(
+        DividedCard(
           children: [
             if (stock != null)
               _FactRow(
@@ -506,35 +507,6 @@ class _Section extends StatelessWidget {
   }
 }
 
-/// Rows on a soft grey card, separated by hairlines. Renders nothing when
-/// empty.
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    if (children.isEmpty) return const SizedBox.shrink();
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.card),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0)
-              const Divider(indent: AppSpace.lg, endIndent: AppSpace.lg),
-            children[i],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 /// One key fact (stock, shipping, warranty, returns): a small label above
 /// its value, so each line says what it is about.
 class _FactRow extends StatelessWidget {
@@ -629,7 +601,7 @@ class _SpecTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return _InfoCard(
+    return DividedCard(
       children: [
         for (final MapEntry(key: label, value: value) in rows.entries)
           if (value != null)

@@ -73,6 +73,31 @@ void main() {
       expect(items(), isEmpty);
       expect(container.read(cartCountProvider), 0);
     });
+
+    test('undo puts a removed line back in its place, once', () {
+      cart().add(product(1));
+      cart().add(product(2), quantity: 3);
+      cart().add(product(3));
+
+      final removal = cart().removeWithUndo(2)!;
+      expect(items().map((i) => i.product.id), [1, 3]);
+
+      expect(cart().undoRemoval(removal), isTrue);
+      expect(items().map((i) => i.product.id), [1, 2, 3]);
+      expect(items()[1].quantity, 3);
+      expect(cart().undoRemoval(removal), isFalse);
+    });
+
+    test('undo does nothing after the cart was cleared', () {
+      cart().add(product(1));
+      cart().add(product(2));
+
+      final removal = cart().removeWithUndo(1)!;
+      cart().clear();
+
+      expect(cart().undoRemoval(removal), isFalse);
+      expect(items(), isEmpty);
+    });
   });
 
   group('wishlist', () {

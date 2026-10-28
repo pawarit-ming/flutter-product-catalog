@@ -32,17 +32,23 @@ a product list with pagination and a product detail page, built with
 
 ## Versions
 
+Use Flutter 3.47.8 with its bundled Dart SDK to reproduce the verified
+environment below.
+
 | Tool | Version |
 |---|---|
-| Flutter | 3.41.0 (stable) |
-| Dart | 3.11.0 (`pubspec.yaml` requires ^3.10.7) |
+| Flutter | 3.47.8 (stable) |
+| Dart | 3.13.7 |
 | flutter_riverpod / riverpod | 3.3.2 |
 | dio | 5.11.1 |
-| intl | 0.20.2 (pinned by Flutter localizations) |
+| intl | 0.20.3 |
 | shared_preferences | 2.5.5 |
 | cached_network_image | 3.4.1 |
 
 Exact dependency versions are pinned in `pubspec.lock`.
+`pubspec.yaml` allows Dart ^3.10.7, while the current locked dependencies
+require Dart >=3.11.0-0. Other Flutter versions may resolve different
+dependencies because some packages are constrained by the Flutter SDK.
 
 ## Getting started
 
@@ -115,11 +121,16 @@ Widget tests check for overflow on the catalog, detail and cart screens at
 
 ## Testing
 
-`flutter analyze` reports no issues and all 110 tests pass. They cover the
+Last verified on 28 October 2026 with Flutter 3.47.8 / Dart 3.13.7:
+`flutter analyze --no-pub` reported no issues and all 113 tests passed with
+`flutter test --no-pub`. They cover the
 product model and its validation, the repository (endpoints, pagination,
 error mapping) with a fake Dio adapter, the product list state (pagination,
 refresh, stale requests), and the main screens as widget tests (loading,
 error, empty, pull-to-refresh, Load More, opening a product and coming back).
+Additional tests cover cart Undo restoring a removed item's position and
+quantity, rejecting Undo after clearing the cart, and preserving saved data
+when device storage cannot be read.
 
 ## Extra features
 

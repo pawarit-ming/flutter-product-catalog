@@ -5,6 +5,7 @@ import '../../../core/formatting/price_format.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../home/application/home_tab_provider.dart';
 import '../../products/presentation/product_detail_screen.dart';
+import '../../products/presentation/widgets/divided_card.dart';
 import '../../products/presentation/widgets/error_view.dart';
 import '../../products/presentation/widgets/product_image.dart';
 import '../../products/presentation/widgets/product_labels.dart';
@@ -74,7 +75,8 @@ class CartScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(AppSpace.lg),
                     children: [
                       _Constrained(
-                        child: _Group(
+                        child: DividedCard(
+                          indent: AppSpace.md,
                           children: [
                             for (final item in items) _CartLine(item: item),
                           ],
@@ -106,32 +108,6 @@ class _Constrained extends StatelessWidget {
       child: child,
     ),
   );
-}
-
-/// White card with hairline separators between its rows. A [Material], so
-/// the rows' ink ripples show on it.
-class _Group extends StatelessWidget {
-  const _Group({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppRadius.card),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0)
-              const Divider(indent: AppSpace.md, endIndent: AppSpace.md),
-            children[i],
-          ],
-        ],
-      ),
-    );
-  }
 }
 
 class _CartLine extends ConsumerWidget {

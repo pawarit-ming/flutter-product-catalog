@@ -10,7 +10,6 @@ import '../application/categories_provider.dart';
 import '../application/product_list_notifier.dart';
 import '../application/product_list_state.dart';
 import '../data/catalog_query.dart';
-import 'widgets/empty_view.dart';
 import 'widgets/error_view.dart';
 import 'widgets/product_grid.dart';
 
@@ -63,22 +62,6 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   }
 
   CatalogQueryNotifier get _query => ref.read(catalogQueryProvider.notifier);
-
-  void _onSearchChanged(String text) {
-    ref.read(catalogSearchProvider.notifier).setText(text);
-  }
-
-  void _submitSearch(String text) {
-    _query.setSearch(text);
-  }
-
-  void _clearSearch() {
-    _query.setSearch('');
-  }
-
-  void _selectCategory(String? slug) {
-    _query.setCategory(slug);
-  }
 
   Future<void> _onRefresh() async {
     final list = ref.read(productListProvider);
@@ -142,10 +125,10 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
         children: [
           _CatalogHeader(
             searchController: _searchController,
-            onSearchChanged: _onSearchChanged,
-            onSearchSubmitted: _submitSearch,
-            onClearSearch: _clearSearch,
-            onCategorySelected: _selectCategory,
+            onSearchChanged: ref.read(catalogSearchProvider.notifier).setText,
+            onSearchSubmitted: _query.setSearch,
+            onClearSearch: () => _query.setSearch(''),
+            onCategorySelected: _query.setCategory,
           ),
           Expanded(
             child: RefreshIndicator(
@@ -203,25 +186,33 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       return SliverFillRemaining(
         hasScrollBody: false,
         child: query.isSearching
-            ? EmptyView(
+            ? MessageView(
                 icon: Icons.search_off,
                 title: 'ไม่พบสินค้าที่ตรงกับ "${query.search}"',
                 message: 'ลองใช้คำค้นอื่น หรือดึงลงเพื่อรีเฟรช',
-                actionLabel: 'ล้างการค้นหา',
-                onAction: _clearSearch,
+                action: OutlinedButton(
+                  onPressed: () => _query.setSearch(''),
+                  child: const Text('ล้างการค้นหา'),
+                ),
               )
             : query.categorySlug != null
-            ? EmptyView(
+            ? MessageView(
+                icon: Icons.inventory_2_outlined,
                 title: 'ไม่มีสินค้าในหมวดนี้',
                 message: 'ลองเลือกหมวดอื่น หรือดึงลงเพื่อรีเฟรช',
-                actionLabel: 'ดูสินค้าทั้งหมด',
-                onAction: () => _selectCategory(null),
+                action: OutlinedButton(
+                  onPressed: () => _query.setCategory(null),
+                  child: const Text('ดูสินค้าทั้งหมด'),
+                ),
               )
-            : EmptyView(
+            : MessageView(
+                icon: Icons.inventory_2_outlined,
                 title: 'ไม่พบสินค้า',
                 message: 'ดึงลงเพื่อรีเฟรช หรือลองอีกครั้ง',
-                actionLabel: 'ลองอีกครั้ง',
-                onAction: _onRefresh,
+                action: OutlinedButton(
+                  onPressed: _onRefresh,
+                  child: const Text('ลองอีกครั้ง'),
+                ),
               ),
       );
     }

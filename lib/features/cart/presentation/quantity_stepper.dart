@@ -10,12 +10,10 @@ class QuantityStepper extends StatelessWidget {
     required this.value,
     required this.max,
     required this.onChanged,
-    this.min = 1,
     this.dense = false,
   });
 
   final int value;
-  final int min;
   final int max;
   final ValueChanged<int> onChanged;
   final bool dense;
@@ -41,7 +39,7 @@ class QuantityStepper extends StatelessWidget {
           tooltip: 'ลดจำนวน',
           iconSize: 18,
           style: buttonStyle,
-          onPressed: value > min ? () => onChanged(value - 1) : null,
+          onPressed: value > 1 ? () => onChanged(value - 1) : null,
           icon: const Icon(Icons.remove),
         ),
         ConstrainedBox(

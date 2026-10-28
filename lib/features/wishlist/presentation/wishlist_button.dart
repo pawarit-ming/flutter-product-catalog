@@ -7,10 +7,9 @@ import '../application/wishlist_provider.dart';
 
 /// Heart toggle for a product.
 class WishlistButton extends ConsumerWidget {
-  const WishlistButton({super.key, required this.product, this.size = 22});
+  const WishlistButton({super.key, required this.product});
 
   final Product product;
-  final double size;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -19,7 +18,7 @@ class WishlistButton extends ConsumerWidget {
     return IconButton(
       tooltip: saved ? 'นำออกจากรายการโปรด' : 'เพิ่มในรายการโปรด',
       isSelected: saved,
-      iconSize: size,
+      iconSize: 22,
       onPressed: () => ref.read(wishlistProvider.notifier).toggle(product),
       icon: Icon(Icons.favorite_border, color: colors.onSurfaceVariant),
       selectedIcon: Icon(Icons.favorite, color: CatalogColors.of(context).sale),

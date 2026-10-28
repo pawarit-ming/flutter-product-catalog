@@ -85,14 +85,9 @@ class SliverProductGrid extends StatelessWidget {
 
 /// Static placeholder cards shown during the initial load.
 class SliverProductSkeletonGrid extends StatelessWidget {
-  const SliverProductSkeletonGrid({
-    super.key,
-    required this.layout,
-    this.count = 6,
-  });
+  const SliverProductSkeletonGrid({super.key, required this.layout});
 
   final ProductGridLayout layout;
-  final int count;
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +109,7 @@ class SliverProductSkeletonGrid extends StatelessWidget {
       sliver: SliverGrid.builder(
         key: const Key('product-skeleton'),
         gridDelegate: layout.delegate,
-        itemCount: count,
+        itemCount: 6,
         itemBuilder: (context, index) => DecoratedBox(
           decoration: BoxDecoration(
             color: colors.surfaceContainerLowest,
